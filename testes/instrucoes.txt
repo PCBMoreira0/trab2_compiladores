@@ -14,3 +14,4 @@ bison -d pseudo.y
 gcc pseudo.tab.c lex.yy.c
 
 ./a.out codigo.ps
+

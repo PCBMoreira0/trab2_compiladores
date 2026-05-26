@@ -1,6 +1,6 @@
 %{ 
 /* analisador léxico para uma calculadora básica */ 
-#include "calc.tab.h"
+#include "calculadora.tab.h"
 extern double variables[26];
 %}
 

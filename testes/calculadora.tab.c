@@ -67,26 +67,20 @@
 
 
 /* First part of user prologue.  */
-#line 1 "pseudo.y"
+#line 1 "calculadora.y"
 
-#include <stdio.h>    
-#include <stdlib.h>    
-#include "tree.h"
-#include "stack.h"
-
-extern FILE *yyin;
+/* analisador sintático para uma calculadora básica */
+#include <iostream>
+using std::cout;
 
 int yylex(void);
+int yyparse(void);
 void yyerror(const char *);
 
-const char *token_name_int(int t);
+/* cada letra do alfabeto é uma variável */
+double variables[26];
 
-int valores[26];
-
-Stack *stack = NULL;
-
-
-#line 90 "pseudo.tab.c"
+#line 84 "calculadora.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -109,7 +103,7 @@ Stack *stack = NULL;
 #  endif
 # endif
 
-#include "pseudo.tab.h"
+#include "calculadora.tab.h"
 /* Symbol kind.  */
 enum yysymbol_kind_t
 {
@@ -117,34 +111,21 @@ enum yysymbol_kind_t
   YYSYMBOL_YYEOF = 0,                      /* "end of file"  */
   YYSYMBOL_YYerror = 1,                    /* error  */
   YYSYMBOL_YYUNDEF = 2,                    /* "invalid token"  */
-  YYSYMBOL_TOKEN_SE = 3,                   /* TOKEN_SE  */
-  YYSYMBOL_TOKEN_SENAO = 4,                /* TOKEN_SENAO  */
-  YYSYMBOL_TOKEN_ENTAO = 5,                /* TOKEN_ENTAO  */
-  YYSYMBOL_TOKEN_ENQUANTO = 6,             /* TOKEN_ENQUANTO  */
-  YYSYMBOL_TOKEN_FIMENQUANTO = 7,          /* TOKEN_FIMENQUANTO  */
-  YYSYMBOL_TOKEN_FIMSE = 8,                /* TOKEN_FIMSE  */
-  YYSYMBOL_TOKEN_FACA = 9,                 /* TOKEN_FACA  */
-  YYSYMBOL_TOKEN_IGUAL = 10,               /* TOKEN_IGUAL  */
-  YYSYMBOL_TOKEN_MENORQUE = 11,            /* TOKEN_MENORQUE  */
-  YYSYMBOL_TOKEN_MAIORQUE = 12,            /* TOKEN_MAIORQUE  */
-  YYSYMBOL_TOKEN_ADICAO = 13,              /* TOKEN_ADICAO  */
-  YYSYMBOL_TOKEN_SUBTRACAO = 14,           /* TOKEN_SUBTRACAO  */
-  YYSYMBOL_TOKEN_MULTIPLICACAO = 15,       /* TOKEN_MULTIPLICACAO  */
-  YYSYMBOL_TOKEN_DIVISAO = 16,             /* TOKEN_DIVISAO  */
-  YYSYMBOL_TOKEN_ATRIBUICAO = 17,          /* TOKEN_ATRIBUICAO  */
-  YYSYMBOL_TOKEN_ID = 18,                  /* TOKEN_ID  */
-  YYSYMBOL_TOKEN_INT = 19,                 /* TOKEN_INT  */
-  YYSYMBOL_TOKEN_PAR_ESQUERDO = 20,        /* TOKEN_PAR_ESQUERDO  */
-  YYSYMBOL_TOKEN_PAR_DIREITO = 21,         /* TOKEN_PAR_DIREITO  */
-  YYSYMBOL_TOKEN_PONTO_VIRGULA = 22,       /* TOKEN_PONTO_VIRGULA  */
-  YYSYMBOL_YYACCEPT = 23,                  /* $accept  */
-  YYSYMBOL_inicio = 24,                    /* inicio  */
-  YYSYMBOL_sequencia = 25,                 /* sequencia  */
-  YYSYMBOL_declaracao = 26,                /* declaracao  */
-  YYSYMBOL_atribuicao = 27,                /* atribuicao  */
-  YYSYMBOL_enquanto = 28,                  /* enquanto  */
-  YYSYMBOL_condicao = 29,                  /* condicao  */
-  YYSYMBOL_valor = 30                      /* valor  */
+  YYSYMBOL_VAR = 3,                        /* VAR  */
+  YYSYMBOL_NUM = 4,                        /* NUM  */
+  YYSYMBOL_5_ = 5,                         /* '+'  */
+  YYSYMBOL_6_ = 6,                         /* '-'  */
+  YYSYMBOL_7_ = 7,                         /* '*'  */
+  YYSYMBOL_8_ = 8,                         /* '/'  */
+  YYSYMBOL_UMINUS = 9,                     /* UMINUS  */
+  YYSYMBOL_10_n_ = 10,                     /* '\n'  */
+  YYSYMBOL_11_ = 11,                       /* '='  */
+  YYSYMBOL_12_ = 12,                       /* '('  */
+  YYSYMBOL_13_ = 13,                       /* ')'  */
+  YYSYMBOL_YYACCEPT = 14,                  /* $accept  */
+  YYSYMBOL_math = 15,                      /* math  */
+  YYSYMBOL_calc = 16,                      /* calc  */
+  YYSYMBOL_expr = 17                       /* expr  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -472,19 +453,19 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  12
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   28
+#define YYLAST   39
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  23
+#define YYNTOKENS  14
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  8
+#define YYNNTS  4
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  14
+#define YYNRULES  13
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  30
+#define YYNSTATES  26
 
 /* YYMAXUTOK -- Last valid token kind.  */
-#define YYMAXUTOK   277
+#define YYMAXUTOK   260
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
@@ -499,12 +480,12 @@ union yyalloc
 static const yytype_int8 yytranslate[] =
 {
        0,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+      10,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+      12,    13,     7,     5,     2,     6,     2,     8,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+       2,    11,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -524,16 +505,15 @@ static const yytype_int8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
-       5,     6,     7,     8,     9,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    22
+       9
 };
 
 #if YYDEBUG
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int8 yyrline[] =
 {
-       0,    67,    67,    68,    71,    78,    86,    87,    91,   100,
-     115,   116,   117,   120,   121
+       0,    30,    30,    31,    34,    35,    38,    39,    40,    41,
+      47,    48,    49,    50
 };
 #endif
 
@@ -549,14 +529,9 @@ static const char *yysymbol_name (yysymbol_kind_t yysymbol) YY_ATTRIBUTE_UNUSED;
    First, the terminals, then, starting at YYNTOKENS, nonterminals.  */
 static const char *const yytname[] =
 {
-  "\"end of file\"", "error", "\"invalid token\"", "TOKEN_SE",
-  "TOKEN_SENAO", "TOKEN_ENTAO", "TOKEN_ENQUANTO", "TOKEN_FIMENQUANTO",
-  "TOKEN_FIMSE", "TOKEN_FACA", "TOKEN_IGUAL", "TOKEN_MENORQUE",
-  "TOKEN_MAIORQUE", "TOKEN_ADICAO", "TOKEN_SUBTRACAO",
-  "TOKEN_MULTIPLICACAO", "TOKEN_DIVISAO", "TOKEN_ATRIBUICAO", "TOKEN_ID",
-  "TOKEN_INT", "TOKEN_PAR_ESQUERDO", "TOKEN_PAR_DIREITO",
-  "TOKEN_PONTO_VIRGULA", "$accept", "inicio", "sequencia", "declaracao",
-  "atribuicao", "enquanto", "condicao", "valor", YY_NULLPTR
+  "\"end of file\"", "error", "\"invalid token\"", "VAR", "NUM", "'+'",
+  "'-'", "'*'", "'/'", "UMINUS", "'\\n'", "'='", "'('", "')'", "$accept",
+  "math", "calc", "expr", YY_NULLPTR
 };
 
 static const char *
@@ -566,7 +541,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-20)
+#define YYPACT_NINF (-6)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -580,9 +555,9 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-       0,   -19,   -20,   -20,    10,     0,   -20,   -10,   -20,     6,
-     -14,     4,   -20,   -20,   -20,   -14,    -3,     0,   -20,   -14,
-     -14,   -14,    -4,     3,     5,     7,   -20,   -20,   -20,   -20
+      14,    -2,    -6,    18,    18,     4,    -4,    30,    18,    -6,
+      -6,    26,    -6,     1,    -6,    18,    18,    18,    18,    30,
+      -6,    -6,    -5,    -5,    -6,    -6
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -590,21 +565,21 @@ static const yytype_int8 yypact[] =
    means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-       2,     0,    13,    14,     0,     3,     5,     0,     7,     0,
-       0,     0,     1,     4,     6,     0,     0,     0,     8,     0,
-       0,     0,     0,     0,     0,     0,     9,    10,    12,    11
+       0,    12,    13,     0,     0,     0,     0,     5,     0,    12,
+      11,     0,     1,     0,     3,     0,     0,     0,     0,     4,
+      10,     2,     6,     7,     8,     9
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -20,   -20,     8,    -5,   -20,   -20,   -20,     1
+      -6,    -6,    20,    -3
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-       0,     4,     5,     6,     7,     8,    11,     9
+       0,     5,     6,     7
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -612,39 +587,41 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      13,    10,     1,    26,     2,     3,     1,    19,    20,    21,
-      12,    16,    14,    17,     2,     3,    18,    13,     2,     3,
-      23,    24,    25,    15,    27,    22,    28,     0,    29
+      10,    11,    17,    18,    12,    19,    14,     1,     2,     8,
+       3,    21,    22,    23,    24,    25,     4,     1,     2,     0,
+       3,     9,     2,     0,     3,    13,     4,     0,     0,     0,
+       4,    15,    16,    17,    18,    15,    16,    17,    18,    20
 };
 
 static const yytype_int8 yycheck[] =
 {
-       5,    20,     6,     7,    18,    19,     6,    10,    11,    12,
-       0,    10,    22,     9,    18,    19,    15,    22,    18,    19,
-      19,    20,    21,    17,    21,    17,    21,    -1,    21
+       3,     4,     7,     8,     0,     8,    10,     3,     4,    11,
+       6,    10,    15,    16,    17,    18,    12,     3,     4,    -1,
+       6,     3,     4,    -1,     6,     5,    12,    -1,    -1,    -1,
+      12,     5,     6,     7,     8,     5,     6,     7,     8,    13
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,     6,    18,    19,    24,    25,    26,    27,    28,    30,
-      20,    29,     0,    26,    22,    17,    30,     9,    30,    10,
-      11,    12,    25,    30,    30,    30,     7,    21,    21,    21
+       0,     3,     4,     6,    12,    15,    16,    17,    11,     3,
+      17,    17,     0,    16,    10,     5,     6,     7,     8,    17,
+      13,    10,    17,    17,    17,    17
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    23,    24,    24,    25,    25,    26,    26,    27,    28,
-      29,    29,    29,    30,    30
+       0,    14,    15,    15,    16,    16,    17,    17,    17,    17,
+      17,    17,    17,    17
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr2[] =
 {
-       0,     2,     0,     1,     2,     1,     2,     1,     3,     5,
-       5,     5,     5,     1,     1
+       0,     2,     3,     2,     3,     1,     3,     3,     3,     3,
+       3,     2,     1,     1
 };
 
 
@@ -1107,103 +1084,67 @@ yyreduce:
   YY_REDUCE_PRINT (yyn);
   switch (yyn)
     {
-  case 3: /* inicio: sequencia  */
-#line 68 "pseudo.y"
-                { print_tree((yyvsp[0].tree_node), token_name_int); }
-#line 1114 "pseudo.tab.c"
+  case 4: /* calc: VAR '=' expr  */
+#line 34 "calculadora.y"
+                                        { variables[(yyvsp[-2].ind)] = (yyvsp[0].num); }
+#line 1091 "calculadora.tab.c"
     break;
 
-  case 4: /* sequencia: sequencia declaracao  */
-#line 71 "pseudo.y"
-                                { 
-    printf("SEQUENCIA DECLARACAO\n");
-    TreeNode *atribuicao = create_node(456);
-    add_child(atribuicao, (yyvsp[-1].tree_node));
-    add_child(atribuicao, (yyvsp[0].tree_node));
-    (yyval.tree_node) = atribuicao;
-}
-#line 1126 "pseudo.tab.c"
+  case 5: /* calc: expr  */
+#line 35 "calculadora.y"
+                                                { cout << "= " << (yyvsp[0].num) << "\n"; }
+#line 1097 "calculadora.tab.c"
     break;
 
-  case 5: /* sequencia: declaracao  */
-#line 78 "pseudo.y"
-                 {
-        printf("DECLARACAO\n");
-        TreeNode *atribuicao = create_node(100);
-        add_child(atribuicao, (yyvsp[0].tree_node));
-        (yyval.tree_node) = atribuicao;
-    }
-#line 1137 "pseudo.tab.c"
+  case 6: /* expr: expr '+' expr  */
+#line 38 "calculadora.y"
+                                        { (yyval.num) = (yyvsp[-2].num) + (yyvsp[0].num); }
+#line 1103 "calculadora.tab.c"
     break;
 
-  case 6: /* declaracao: atribuicao TOKEN_PONTO_VIRGULA  */
-#line 86 "pseudo.y"
-                                           { (yyval.tree_node) = (yyvsp[-1].tree_node); }
-#line 1143 "pseudo.tab.c"
+  case 7: /* expr: expr '-' expr  */
+#line 39 "calculadora.y"
+                                        { (yyval.num) = (yyvsp[-2].num) - (yyvsp[0].num); }
+#line 1109 "calculadora.tab.c"
     break;
 
-  case 7: /* declaracao: enquanto  */
-#line 87 "pseudo.y"
-               { (yyval.tree_node) = (yyvsp[0].tree_node); }
-#line 1149 "pseudo.tab.c"
+  case 8: /* expr: expr '*' expr  */
+#line 40 "calculadora.y"
+                                        { (yyval.num) = (yyvsp[-2].num) * (yyvsp[0].num); }
+#line 1115 "calculadora.tab.c"
     break;
 
-  case 8: /* atribuicao: valor TOKEN_ATRIBUICAO valor  */
-#line 91 "pseudo.y"
-                                         {
-    printf("ATRIBUICAO\n");
-    TreeNode *atribuicao = create_node(TOKEN_ATRIBUICAO);
-    add_child(atribuicao, (yyvsp[-2].tree_node));
-    add_child(atribuicao, (yyvsp[0].tree_node));
-    (yyval.tree_node) = atribuicao;
-}
-#line 1161 "pseudo.tab.c"
+  case 9: /* expr: expr '/' expr  */
+#line 41 "calculadora.y"
+                                        { 
+								if ((yyvsp[0].num) == 0)
+									yyerror("divisão por zero");
+								else
+									(yyval.num) = (yyvsp[-2].num) / (yyvsp[0].num); 
+							}
+#line 1126 "calculadora.tab.c"
     break;
 
-  case 9: /* enquanto: TOKEN_ENQUANTO condicao TOKEN_FACA sequencia TOKEN_FIMENQUANTO  */
-#line 100 "pseudo.y"
-                                                                         {
-    printf("ENQUANTO\n");
-    TreeNode *atribuicao = create_node(22);
-    add_child(atribuicao, (yyvsp[-3].tree_node));
-    add_child(atribuicao, (yyvsp[-1].tree_node));
-    (yyval.tree_node) = atribuicao;
-    }
-#line 1173 "pseudo.tab.c"
+  case 10: /* expr: '(' expr ')'  */
+#line 47 "calculadora.y"
+                                        { (yyval.num) = (yyvsp[-1].num); }
+#line 1132 "calculadora.tab.c"
     break;
 
-  case 10: /* condicao: TOKEN_PAR_ESQUERDO valor TOKEN_IGUAL valor TOKEN_PAR_DIREITO  */
-#line 115 "pseudo.y"
-                                                                       { (yyval.tree_node) = create_node(31); }
-#line 1179 "pseudo.tab.c"
+  case 11: /* expr: '-' expr  */
+#line 48 "calculadora.y"
+                                { (yyval.num) = - (yyvsp[0].num); }
+#line 1138 "calculadora.tab.c"
     break;
 
-  case 11: /* condicao: TOKEN_PAR_ESQUERDO valor TOKEN_MAIORQUE valor TOKEN_PAR_DIREITO  */
-#line 116 "pseudo.y"
-                                                                      { (yyval.tree_node) = create_node(32); }
-#line 1185 "pseudo.tab.c"
-    break;
-
-  case 12: /* condicao: TOKEN_PAR_ESQUERDO valor TOKEN_MENORQUE valor TOKEN_PAR_DIREITO  */
-#line 117 "pseudo.y"
-                                                                      { (yyval.tree_node) = create_node(33); }
-#line 1191 "pseudo.tab.c"
-    break;
-
-  case 13: /* valor: TOKEN_ID  */
-#line 120 "pseudo.y"
-                { printf("ID = %c\n", (char)(yyvsp[0].texto)[0]); (yyval.tree_node) = create_node((int)(yyvsp[0].texto)[0]); }
-#line 1197 "pseudo.tab.c"
-    break;
-
-  case 14: /* valor: TOKEN_INT  */
-#line 121 "pseudo.y"
-                { printf("INT\n"); (yyval.tree_node) = create_node((yyvsp[0].inteiro)); }
-#line 1203 "pseudo.tab.c"
+  case 12: /* expr: VAR  */
+#line 49 "calculadora.y"
+                                                { (yyval.num) = variables[(yyvsp[0].ind)]; }
+#line 1144 "calculadora.tab.c"
     break;
 
 
-#line 1207 "pseudo.tab.c"
+#line 1148 "calculadora.tab.c"
 
       default: break;
     }
@@ -1396,45 +1337,20 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 128 "pseudo.y"
+#line 53 "calculadora.y"
 
 
-
-void yyerror(const char *s)
+int main()
 {
-    printf("Erro: %s\n", s);
+	yyparse();
 }
 
-const char *token_name_int(int t){
-    char *buffer = malloc(sizeof(int) * 20); // Certifique-se de que o array é grande o suficiente
-
-    snprintf(buffer, 20, "%d", t); 
-    return buffer;
-}
-
-int main(int argc, char **argv) {
-    stack = stack_create();
-
-
-    if (argc > 1) {
-        FILE *arquivo = fopen(argv[1], "r");
-        if (!arquivo) {
-            perror("Erro ao abrir o arquivo");
-            return 1; 
-        }
-        
-        yyin = arquivo; 
-    } else {
-        printf("Nenhum arquivo passado. Lendo do teclado (Ctrl+D para sair):\n");
-    }
-
-    yyparse();
-
-    if (yyin != stdin) {
-        fclose(yyin);
-    }
-
-    printf("fim\n");
-
-    return 0;
+void yyerror(const char * s)
+{
+	/* variáveis definidas no analisador léxico */
+	extern int yylineno;    
+	extern char * yytext;   
+	
+	/* mensagem de erro exibe o símbolo que causou erro e o número da linha */
+    cout << "Erro (" << s << "): símbolo \"" << yytext << "\" (linha " << yylineno << ")\n";
 }

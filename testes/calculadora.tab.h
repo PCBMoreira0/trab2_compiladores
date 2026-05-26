@@ -35,8 +35,8 @@
    especially those whose name start with YY_ or yy_.  They are
    private implementation details that can be changed or removed.  */
 
-#ifndef YY_YY_PSEUDO_TAB_H_INCLUDED
-# define YY_YY_PSEUDO_TAB_H_INCLUDED
+#ifndef YY_YY_CALCULADORA_TAB_H_INCLUDED
+# define YY_YY_CALCULADORA_TAB_H_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -44,13 +44,6 @@
 #if YYDEBUG
 extern int yydebug;
 #endif
-/* "%code requires" blocks.  */
-#line 20 "pseudo.y"
-                                                                                                                                                                            
-    #include "tree.h"                                                                                                                                                                       
-  
-
-#line 54 "pseudo.tab.h"
 
 /* Token kinds.  */
 #ifndef YYTOKENTYPE
@@ -61,26 +54,9 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    TOKEN_SE = 258,                /* TOKEN_SE  */
-    TOKEN_SENAO = 259,             /* TOKEN_SENAO  */
-    TOKEN_ENTAO = 260,             /* TOKEN_ENTAO  */
-    TOKEN_ENQUANTO = 261,          /* TOKEN_ENQUANTO  */
-    TOKEN_FIMENQUANTO = 262,       /* TOKEN_FIMENQUANTO  */
-    TOKEN_FIMSE = 263,             /* TOKEN_FIMSE  */
-    TOKEN_FACA = 264,              /* TOKEN_FACA  */
-    TOKEN_IGUAL = 265,             /* TOKEN_IGUAL  */
-    TOKEN_MENORQUE = 266,          /* TOKEN_MENORQUE  */
-    TOKEN_MAIORQUE = 267,          /* TOKEN_MAIORQUE  */
-    TOKEN_ADICAO = 268,            /* TOKEN_ADICAO  */
-    TOKEN_SUBTRACAO = 269,         /* TOKEN_SUBTRACAO  */
-    TOKEN_MULTIPLICACAO = 270,     /* TOKEN_MULTIPLICACAO  */
-    TOKEN_DIVISAO = 271,           /* TOKEN_DIVISAO  */
-    TOKEN_ATRIBUICAO = 272,        /* TOKEN_ATRIBUICAO  */
-    TOKEN_ID = 273,                /* TOKEN_ID  */
-    TOKEN_INT = 274,               /* TOKEN_INT  */
-    TOKEN_PAR_ESQUERDO = 275,      /* TOKEN_PAR_ESQUERDO  */
-    TOKEN_PAR_DIREITO = 276,       /* TOKEN_PAR_DIREITO  */
-    TOKEN_PONTO_VIRGULA = 277      /* TOKEN_PONTO_VIRGULA  */
+    VAR = 258,                     /* VAR  */
+    NUM = 259,                     /* NUM  */
+    UMINUS = 260                   /* UMINUS  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -89,13 +65,12 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 24 "pseudo.y"
+#line 14 "calculadora.y"
 
-    char *texto;
-    int inteiro;
-    TreeNode* tree_node;
+	double num;
+	int ind;
 
-#line 99 "pseudo.tab.h"
+#line 74 "calculadora.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -110,4 +85,4 @@ extern YYSTYPE yylval;
 int yyparse (void);
 
 
-#endif /* !YY_YY_PSEUDO_TAB_H_INCLUDED  */
+#endif /* !YY_YY_CALCULADORA_TAB_H_INCLUDED  */
