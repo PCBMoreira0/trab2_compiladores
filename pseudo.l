@@ -43,18 +43,3 @@ fimenquanto return TOKEN_FIMENQUANTO;
 . printf("token não reconhecido: %s\n", yytext);
 
 %%
-
-/* int main(int argc, char **argv) {
-    printf("Digite seu codigo (Ctrl+D para encerrar):\n");
-    
-    // yylex() é a função gerada pelo Flex que inicia a leitura dos tokens 
-    yylex(); 
-    
-    return 0;
-} 
-*/
-
-/* Função necessária pelo Flex para saber o que fazer ao fim do arquivo */
-/* int yywrap() {
-    return 1;
-} */

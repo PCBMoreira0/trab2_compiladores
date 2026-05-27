@@ -45,12 +45,11 @@
 extern int yydebug;
 #endif
 /* "%code requires" blocks.  */
-#line 20 "pseudo.y"
-                                                                                                                                                                            
-    #include "tree.h"                                                                                                                                                                       
-  
+#line 14 "pseudo.y"
 
-#line 54 "pseudo.tab.h"
+    #include "libs/tree.h"
+
+#line 53 "pseudo.tab.h"
 
 /* Token kinds.  */
 #ifndef YYTOKENTYPE
@@ -89,13 +88,13 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 24 "pseudo.y"
+#line 18 "pseudo.y"
 
     char *texto;
     int inteiro;
     TreeNode* tree_node;
 
-#line 99 "pseudo.tab.h"
+#line 98 "pseudo.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

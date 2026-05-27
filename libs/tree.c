@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include "tree.h"
 
-// Create a new node
-TreeNode *create_node(int value)
+TreeNode *create_node(void *data)
 {
     TreeNode *new_node = (TreeNode *)malloc(sizeof(TreeNode));
     if (new_node == NULL)
@@ -12,14 +11,13 @@ TreeNode *create_node(int value)
         exit(1);
     }
 
-    new_node->valor = value;
+    new_node->data = data;
     new_node->filho = NULL;
     new_node->irmao = NULL;
 
     return new_node;
 }
 
-// Add child to a parent node
 void add_child(TreeNode *parent, TreeNode *child)
 {
     if (parent == NULL || child == NULL)
@@ -40,11 +38,11 @@ void add_child(TreeNode *parent, TreeNode *child)
     }
 }
 
-void print_tree_recursive(
+static void print_tree_recursive(
     TreeNode *root,
     int level,
     int is_last,
-    const char *(*to_string)(int))
+    const char *(*to_string)(void *))
 {
     if (root == NULL)
         return;
@@ -59,7 +57,7 @@ void print_tree_recursive(
         printf(is_last ? "└── " : "├── ");
     }
 
-    printf("%s\n", to_string(root->valor));
+    printf("%s\n", to_string(root->data));
 
     TreeNode *child = root->filho;
 
@@ -71,18 +69,23 @@ void print_tree_recursive(
     }
 }
 
-void print_tree(TreeNode *root, const char *(*to_string)(int))
+void print_tree(TreeNode *root, const char *(*to_string)(void *))
 {
     print_tree_recursive(root, 0, 1, to_string);
 }
 
-void free_tree(TreeNode *root)
+void free_tree(TreeNode *root, void (*free_data)(void *))
 {
     if (root == NULL)
         return;
 
-    free_tree(root->filho);
-    free_tree(root->irmao);
+    free_tree(root->filho, free_data);
+    free_tree(root->irmao, free_data);
+
+    if (free_data != NULL && root->data != NULL)
+    {
+        free_data(root->data);
+    }
 
     free(root);
 }
