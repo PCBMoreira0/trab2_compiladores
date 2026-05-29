@@ -7,18 +7,17 @@ extern FILE *yyin;
 int yylex(void);
 void yyerror(const char *);
 
-const char *token_name_int(void *t);
-char *itoa(int t);
 %}
 
 %code requires {
-    #include "libs/tree.h"
+    #include "libs/ast.h"
+    #include "libs/translator.h"
 }
 
 %union{
     char *texto;
     int inteiro;
-    TreeNode* tree_node;
+    ASTNode *ast_node;
 }
 
 // fluxo
@@ -47,71 +46,75 @@ char *itoa(int t);
 %token TOKEN_PAR_DIREITO
 %token TOKEN_PONTO_VIRGULA
 
-%left TOKEN_ADICAO TOKEN_SUBTRACAO
-%left TOKEN_MULTIPLICACAO TOKEN_DIVISAO
-
-%type <tree_node> valor
-%type <tree_node> atribuicao
-%type <tree_node> enquanto
-%type <tree_node> sequencia
-%type <tree_node> declaracao
-%type <tree_node> condicao
+%type <ast_node> lista_comandos
+%type <ast_node> comando
+%type <ast_node> atribuicao
+%type <ast_node> enquanto
+%type <ast_node> se_entao
+%type <ast_node> condicao
+%type <ast_node> expressao
+%type <ast_node> termo
+%type <ast_node> fator
 
 %%
-inicio: 
-    | sequencia { print_tree($1, token_name_int); }
+
+programa
+    : lista_comandos { 
+        ast_print($1, 0); 
+        printf("\n\n"); 
+        translate($1, stdout, 0);
+        }
     ;
 
-sequencia: sequencia declaracao { 
-    printf("SEQUENCIA DECLARACAO\n");
-    TreeNode *seq = create_node("sequencia-declaracao");
-    add_child(seq, $1);
-    add_child(seq, $2);
-    $$ = seq;
-}
-    | declaracao {
-        printf("DECLARACAO\n");
-        TreeNode *declaracao = create_node("declaracao");
-        add_child(declaracao, $1);
-        $$ = declaracao;
-    }
+lista_comandos
+    : comando { $$ = $1; }
+    | lista_comandos comando { $$ = ast_create_block($1, $2); }
     ;
 
-declaracao: atribuicao TOKEN_PONTO_VIRGULA { $$ = $1; }
+comando
+    : atribuicao { $$ = $1; }
     | enquanto { $$ = $1; }
+    | se_entao { $$ = $1; }
     ;
 
-atribuicao: valor TOKEN_ATRIBUICAO valor {
-    printf("ATRIBUICAO %s = %s\n", token_name_int($1->data), token_name_int($3->data));
-    TreeNode *atribuicao = create_node("=");
-    add_child(atribuicao, $1);
-    add_child(atribuicao, $3);
-    $$ = atribuicao;
-}
+atribuicao
+    : TOKEN_ID TOKEN_ATRIBUICAO expressao TOKEN_PONTO_VIRGULA {
+        $$ = ast_create_assign_stmt($1, $3);}
     ;
 
-enquanto: TOKEN_ENQUANTO condicao TOKEN_FACA sequencia TOKEN_FIMENQUANTO {
-    printf("ENQUANTO\n");
-    TreeNode *enquanto = create_node("while");
-    add_child(enquanto, $2);
-    add_child(enquanto, $4);
-    $$ = enquanto;
-    }
+enquanto
+    : TOKEN_ENQUANTO TOKEN_PAR_ESQUERDO condicao TOKEN_PAR_DIREITO TOKEN_FACA lista_comandos TOKEN_FIMENQUANTO { $$ = ast_create_while_stmt($3, $6);}
     ;
 
-condicao: TOKEN_PAR_ESQUERDO valor TOKEN_IGUAL valor TOKEN_PAR_DIREITO { $$ = create_node("=="); }
-    | TOKEN_PAR_ESQUERDO valor TOKEN_MAIORQUE valor TOKEN_PAR_DIREITO { $$ = create_node(">"); }
-    | TOKEN_PAR_ESQUERDO valor TOKEN_MENORQUE valor TOKEN_PAR_DIREITO { $$ = create_node("<"); }
-    ; 
+se_entao
+    : TOKEN_SE TOKEN_PAR_ESQUERDO condicao TOKEN_PAR_DIREITO TOKEN_ENTAO lista_comandos TOKEN_FIMSE { $$ = ast_create_if_stmt($3, $6, NULL); }
+    | TOKEN_SE TOKEN_PAR_ESQUERDO condicao TOKEN_PAR_DIREITO TOKEN_ENTAO lista_comandos TOKEN_SENAO lista_comandos TOKEN_FIMSE { $$ = ast_create_if_stmt($3, $6, $8); }
+    ;
 
-valor: TOKEN_ID { 
-        printf("ID = %s\n", $1); 
-        $$ = create_node($1); 
-    }
-    | TOKEN_INT { 
-        printf("INT = %d\n", $1);        
-        $$ = create_node(itoa($1)); 
-    }
+condicao
+    : expressao TOKEN_IGUAL expressao { $$ = ast_create_op('=', $1, $3); }
+    | expressao TOKEN_MAIORQUE expressao { $$ = ast_create_op('>', $1, $3); }
+    | expressao TOKEN_MENORQUE expressao { $$ = ast_create_op('<', $1, $3); }
+    ;
+
+/* --- INÍCIO DA MATEMÁTICA --- */
+
+expressao
+    : expressao TOKEN_ADICAO termo { $$ = ast_create_op('+', $1, $3); }
+    | expressao TOKEN_SUBTRACAO termo { $$ = ast_create_op('-', $1, $3); }
+    | termo { $$ = $1; }
+    ;
+
+termo
+    : termo TOKEN_MULTIPLICACAO fator { $$ = ast_create_op('*', $1, $3); }
+    | termo TOKEN_DIVISAO fator { $$ = ast_create_op('/', $1, $3); }
+    | fator { $$ = $1; }
+    ;
+
+fator
+    : TOKEN_ID { $$ = ast_create_identifier($1); }
+    | TOKEN_INT { $$ = ast_create_literal_int($1); }
+    | TOKEN_PAR_ESQUERDO expressao TOKEN_PAR_DIREITO { $$ = $2; }
     ;
 
 %%

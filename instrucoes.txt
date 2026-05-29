@@ -1,7 +1,7 @@
 flex arquivo.l
 bison -d arquivo.y
 
-gcc arquivo.tab.c lex.yy.c
+gcc arquivo.tab.c lex.yy.c libs/ast.c libs/translator.c
 
 ./a.out codigo.ps
 
@@ -11,7 +11,7 @@ gcc arquivo.tab.c lex.yy.c
 flex pseudo.l
 bison -d pseudo.y
 
-gcc pseudo.tab.c lex.yy.c
+gcc pseudo.tab.c lex.yy.c libs/ast.c libs/translator.c
 
 ./a.out codigo.ps
 

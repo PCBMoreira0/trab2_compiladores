@@ -1,0 +1,5 @@
+.vscode
+
+lex.yy.c
+pseudo.tab.c
+pseudo.tab.h
