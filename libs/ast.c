@@ -142,7 +142,6 @@ void ast_print(ASTNode *node, int level)
         case AST_BLOCK:
             printf("Lista de Comandos:\n");
             ast_print(node->block.command, level + 1);
-            // Continua a lista no mesmo nível de indentação
             ast_print(node->block.next, level + 1);
             break;
 
