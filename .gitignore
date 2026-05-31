@@ -1,5 +1,7 @@
 .vscode
-
 lex.yy.c
 pseudo.tab.c
 pseudo.tab.h
+scheme.tab.c
+scheme.tab.h
+mudanças.txt

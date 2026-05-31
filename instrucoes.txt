@@ -1,6 +1,8 @@
 flex arquivo.l
 bison -d arquivo.y
 
+
+
 gcc arquivo.tab.c lex.yy.c libs/ast.c libs/translator.c
 
 ./a.out codigo.ps

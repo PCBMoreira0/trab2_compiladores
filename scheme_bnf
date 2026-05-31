@@ -1,0 +1,115 @@
+External representation
+<Datum> is what the read procedure (section Input) successfully parses. Note that any string that parses as an <expression> will also parse as a <datum>.
+
+
+<datum> ==> <simple datum> | <compound datum>
+<simple datum> ==> <boolean> | <number>
+     | <character> | <string> |  <symbol>
+<symbol> ==> <identifier>
+<compound datum> ==> <list> | <vector>
+<list> ==> (<datum>*) | (<datum>+ . <datum>)
+     | <abbreviation>
+<abbreviation> ==> <abbrev prefix> <datum>
+<abbrev prefix> ==> ' | ` | , | ,@
+<vector> ==> #(<datum>*)
+
+Expressions
+
+<expression> ==> <variable>
+     | <literal>
+     | <procedure call>
+     | <lambda expression>
+     | <conditional>
+     | <assignment>
+     | <derived expression>
+
+<literal> ==> <quotation> | <self-evaluating>
+<self-evaluating> ==> <boolean> | <number>
+     | <character> | <string>
+<quotation> ==> '<datum> | (quote <datum>)
+<procedure call> ==> (<operator> <operand>*)
+<operator> ==> <expression>
+<operand> ==> <expression>
+
+<lambda expression> ==> (lambda <formals> <body>)
+<formals> ==> (<variable>*) | <variable>
+     | (<variable>+ . <variable>)
+<body> ==> <definition>* <sequence>
+<sequence> ==> <command>* <expression>
+<command> ==> <expression>
+
+<conditional> ==> (if <test> <consequent> <alternate>)
+<test> ==> <expression>
+<consequent> ==> <expression>
+<alternate> ==> <expression> | <empty>
+
+<assignment> ==> (set! <variable> <expression>)
+
+<derived expression> ==>
+      (cond <cond clause>+)
+     | (cond <cond clause>* (else <sequence>))
+     | (case <expression>
+        <case clause>+)
+     | (case <expression>
+        <case clause>*
+        (else <sequence>))
+     | (and <test>*)
+     | (or <test>*)
+     | (let (<binding spec>*) <body>)
+     | (let <variable> (<binding spec>*) <body>)
+     | (let* (<binding spec>*) <body>)
+     | (letrec (<binding spec>*) <body>)
+     | (begin <sequence>)
+     | (do (<iteration spec>*)
+          (<test> <sequence>)
+        <command>*)
+     | (delay <expression>)
+     | <quasiquotation>
+
+<cond clause> ==> (<test> <sequence>)
+     | (<test>)
+     | (<test> => <recipient>)
+<recipient> ==> <expression>
+<case clause> ==> ((<datum>*) <sequence>)
+
+<binding spec> ==> (<variable> <expression>)
+<iteration spec> ==> (<variable> <init> <step>)
+     | (<variable> <init>)
+<init> ==> <expression>
+<step> ==> <expression>
+
+Quasiquotations
+The following grammar for quasiquote expressions is not context-free. It is presented as a recipe for generating an infinite number of production rules. Imagine a copy of the following rules for D = 1, 2, 3, .... D keeps track of the nesting depth.
+
+
+<quasiquotation> ==> <quasiquotation 1>
+<template 0> ==> <expression>
+<quasiquotation D> ==> `<template D>
+     | (quasiquote <template D>)
+<template D> ==> <simple datum>
+     | <list template D>
+     | <vector template D>
+     | <unquotation D>
+<list template D> ==> (<template or splice D>*)
+     | (<template or splice D>+ . <template D>)
+     | '<template D>
+     | <quasiquotation D+1>
+<vector template D> ==> #(<template or splice D>*)
+<unquotation D> ==> ,<template D-1>
+     | (unquote <template D-1>)
+<template or splice D> ==> <template D>
+     | <splicing unquotation D>
+<splicing unquotation D> ==> ,<template D-1>
+     | (unquote-splicing <template D-1>)
+In <quasiquotation>s, a <list template D> can sometimes be confused with either an <unquotation D> or a <splicing unquotation D>. The interpretation as an <unquotation> or <splicing unquotation D> takes precedence.
+
+
+Programs and definitions
+
+<program> ==> <command or definition>*
+<command or definition> ==> <command> | <definition>
+<definition> ==> (define <variable> <expression>)
+     | (define (<variable> <def formals>) <body>)
+     | (begin <definition>*)
+<def formals> ==> <variable>*
+     | <variable>+ . <variable>
