@@ -77,8 +77,7 @@ definition:
     ;
 
 def_formals:
-    %empty
-    | list_variable_plus
+    list_variable_star
     | list_variable_plus TOKEN_DOT variable
     ;
 
@@ -133,10 +132,14 @@ lambda_expression:
     ;
 
 formals:
-    TOKEN_LPAREN TOKEN_RPAREN
-    | TOKEN_LPAREN list_variable_plus TOKEN_RPAREN
-    | TOKEN_LPAREN list_variable_plus TOKEN_DOT variable TOKEN_RPAREN
+    TOKEN_LPAREN list_variable_star TOKEN_RPAREN
     | variable
+    | TOKEN_LPAREN list_variable_plus TOKEN_DOT variable TOKEN_RPAREN
+    ;
+
+list_variable_star:
+    %empty
+    | list_variable_star variable
     ;
 
 list_variable_plus:
@@ -170,8 +173,10 @@ alternate:
 assignment: TOKEN_LPAREN TOKEN_SET variable expression TOKEN_RPAREN;
 
 derived_expression:
-    TOKEN_LPAREN TOKEN_COND list_cond_clause_star else_clause_opt TOKEN_RPAREN
-    | TOKEN_LPAREN TOKEN_CASE expression list_case_clause_star else_clause_opt TOKEN_RPAREN
+    TOKEN_LPAREN TOKEN_COND list_cond_clause_plus TOKEN_RPAREN
+    | TOKEN_LPAREN TOKEN_COND list_cond_clause_star TOKEN_LPAREN TOKEN_ELSE sequence TOKEN_RPAREN TOKEN_RPAREN
+    | TOKEN_LPAREN TOKEN_CASE expression list_case_clause_plus TOKEN_RPAREN
+    | TOKEN_LPAREN TOKEN_CASE expression list_case_clause_star TOKEN_LPAREN TOKEN_ELSE sequence TOKEN_RPAREN TOKEN_RPAREN
     | TOKEN_LPAREN TOKEN_AND list_test_star TOKEN_RPAREN
     | TOKEN_LPAREN TOKEN_OR list_test_star TOKEN_RPAREN
     | TOKEN_LPAREN TOKEN_LET TOKEN_LPAREN list_bind_spec_star TOKEN_RPAREN body TOKEN_RPAREN
@@ -189,14 +194,14 @@ cond_clause:
     | TOKEN_LPAREN test TOKEN_ARROW recipient TOKEN_RPAREN
     ;
 
+list_cond_clause_plus:
+    cond_clause
+    | list_cond_clause_plus cond_clause
+    ;
+
 list_cond_clause_star:
     %empty
     | list_cond_clause_star cond_clause
-    ;
-
-else_clause_opt:
-    %empty
-    | TOKEN_LPAREN TOKEN_ELSE sequence TOKEN_RPAREN
     ;
 
 recipient: expression;
@@ -205,6 +210,10 @@ case_clause:
     TOKEN_LPAREN TOKEN_LPAREN list_datum_star TOKEN_RPAREN sequence TOKEN_RPAREN
     ;
 
+list_case_clause_plus:
+    case_clause
+    | list_case_clause_plus case_clause
+    ;
 list_case_clause_star:
     %empty
     | list_case_clause_star case_clause
@@ -256,8 +265,7 @@ compound_datum:
     ;
 
 list:
-    TOKEN_LPAREN TOKEN_RPAREN
-    | TOKEN_LPAREN list_datum_plus TOKEN_RPAREN
+    TOKEN_LPAREN list_datum_star TOKEN_RPAREN
     | TOKEN_LPAREN list_datum_plus TOKEN_DOT datum TOKEN_RPAREN
     | abbreviation
     ;
@@ -317,11 +325,8 @@ int main(int argc, char **argv) {
         printf("Nenhum arquivo passado. Lendo do teclado (Ctrl+D para sair):\n");
     }
 
-    int resultado = yyparse();
-    if (resultado == 0)
-        printf("\n>> Código Scheme ACEITO!\n");
-    else 
-        printf("\n>> Código Scheme REJEITADO.\n");
+    yyparse();
+
     if (yyin != stdin) {
         fclose(yyin);
     }
