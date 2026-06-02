@@ -1,0 +1,76 @@
+; Definição de variável (Opção 1 do definition)
+(define limite 100)
+
+; Atribuição (assignment)
+(set! limite 200)
+
+; Chamada de procedimento com vários operandos
+(+ 10 20 limite)
+
+; Chamada sem operandos (valida o %empty do list_operand_star)
+(iniciar)
+
+; If completo (test, consequent, alternate)
+(if (> limite 50)
+    "maior"
+    "menor")
+
+; If sem o alternate (valida o %empty)
+(if #t 10)
+
+; Lambda normal com parênteses
+(lambda (x y) (+ x y))
+
+; Lambda com argumento único (sem parênteses - aceita N argumentos)
+(lambda argumentos (print argumentos))
+
+; Lambda com Dotted Pair (parâmetros fixos + resto)
+(lambda (a b . resto) (+ a b))
+
+; Let normal
+(let ((a 1) (b 2))
+  (+ a b))
+
+; Named let (repare no 'loop' logo depois do let)
+(let loop ((x 10))
+  (if (> x 0)
+      (loop (- x 1))
+      x))
+
+; Let estrela
+(let* ((x 1)
+       (y (+ x 1)))
+  y)
+
+; Let recursivo
+(letrec ((f (lambda () 1)))
+  (f))
+
+; Begin com múltiplos comandos e uma expressão no final
+(begin
+  (set! x 1)
+  (set! y 2)
+  (+ x y))
+
+; And e Or aninhados
+(and #t #f (or #t #f))
+
+; Cond com else
+(cond
+  ((> x 10) "maior")
+  ((= x 10) "igual")
+  (else "menor"))
+
+; Cond com a flecha (=>)
+(cond
+  ((testa-algo) => processa-resultado)) 
+
+; Do (iteração com vários iteration_specs, teste de parada e comandos)
+(do ((i 0 (+ i 1))
+     (j 10 (- j 1)))
+    ((= i 10) j)
+  (print i)
+  (print j))
+
+; Delay
+(delay (+ 10 20))

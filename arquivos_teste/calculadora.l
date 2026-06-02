@@ -18,3 +18,11 @@ var     [a-z]
 .|\n		{ return yytext[0]; }
 
 %%
+
+int main(int argc, char **argv) {
+    printf("Digite seu codigo (Ctrl+D para encerrar):\n");
+    
+    yylex(); 
+    
+    return 0;
+} 

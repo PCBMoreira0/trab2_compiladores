@@ -10,8 +10,8 @@ void yyerror(const char *);
 %}
 
 %code requires {
-    #include "libs/ast.h"
-    #include "libs/translator.h"
+    #include "../../libs/ast.h"
+    #include "../../libs/translator.h"
 }
 
 %union{
