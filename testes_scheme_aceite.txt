@@ -46,7 +46,7 @@
 (letrec ((f (lambda () 1)))
   (f))
 
-; Begin com múltiplos comandos e uma expressão no final (n passou)
+; Begin com múltiplos comandos e uma expressão no final
 (begin
   (set! x 1)
   (set! y 2)
@@ -61,7 +61,7 @@
   ((= x 10) "igual")
   (else "menor"))
 
-; Cond com a flecha (=>) (n passou)
+; Cond com a flecha (=>)
 (cond
   ((testa-algo) => processa-resultado)) 
 
