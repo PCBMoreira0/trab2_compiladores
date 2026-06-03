@@ -1,6 +1,7 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include "libs/symbol_tab.h"
 #include "libs/scheme_ast.h"
 
 int yylex(void);
@@ -13,6 +14,7 @@ ASTNode *ast_root = NULL;
 
 %code requires {
     #include "libs/scheme_ast.h"
+    #include "libs/symbol_tab.h"
 }
 
 %union {
@@ -404,6 +406,10 @@ int main(int argc, char **argv) {
     printf("\n===== AST =====\n");
     ast_print(ast_root, 0);
     printf("===============\n");
+
+    SymbolTable *table = symtab_create();
+    ast_dfs(ast_root, table);
+    symtab_print(table);
 
     if (yyin != stdin) {
         fclose(yyin);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "symbol_tab.h"
+
 /*
  * AST da linguagem Scheme.
  *
@@ -238,3 +240,6 @@ ASTNode *ast_create_character(char *value);
 
 /* ----- impressao ----- */
 void ast_print(ASTNode *node, int level);
+
+/* ----- analise semantica ----- */
+void ast_dfs(ASTNode *node, SymbolTable *table);

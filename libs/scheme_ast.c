@@ -1,4 +1,5 @@
 #include "scheme_ast.h"
+#include "symbol_tab.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -473,6 +474,151 @@ void ast_print(ASTNode *node, int level)
 
     default:
         printf("No desconhecido!\n");
+        break;
+    }
+}
+
+void ast_dfs(ASTNode *node, SymbolTable *table)
+{
+    if (node == NULL)
+        return;
+
+    switch (node->type)
+    {
+    case AST_LIST:
+        ast_dfs(node->list.item, table);
+        ast_dfs(node->list.next, table);
+        break;
+
+    case AST_DEFINE_VAR:
+        ast_dfs(node->define_var.value, table);
+        break;
+
+    case AST_DEFINE_FUNC:
+        ast_dfs(node->func.params, table);
+        ast_dfs(node->func.body, table);
+        break;
+
+    case AST_LAMBDA:
+        symtab_enter_scope(table);
+        for (ASTNode *p = node->func.params; p != NULL; p = p->list.next)
+        {
+            ASTNode *var = p->list.item;
+            if (symtab_insert(table, var->value_str) == NULL)
+            {
+                fprintf(stderr,
+                        "Erro semantico: parametro '%s' duplicado no lambda\n",
+                        var->value_str);
+            }
+        }
+        if (node->func.rest_param != NULL)
+        {
+            symtab_insert(table, node->func.rest_param->value_str);
+        }
+
+        ast_dfs(node->func.body, table);
+
+        symtab_exit_scope(table);
+        break;
+
+    case AST_IF:
+        ast_dfs(node->if_expr.condition, table);
+        ast_dfs(node->if_expr.then_branch, table);
+        ast_dfs(node->if_expr.else_branch, table);
+        break;
+
+    case AST_SET:
+        ast_dfs(node->set_expr.value, table);
+        break;
+
+    case AST_CALL:
+        ast_dfs(node->call.operator_, table);
+        ast_dfs(node->call.operands, table);
+        break;
+
+    case AST_QUOTE:
+        ast_dfs(node->quote.datum, table);
+        break;
+
+    case AST_COND:
+        ast_dfs(node->cond.clauses, table);
+        ast_dfs(node->cond.else_clause, table);
+        break;
+
+    case AST_COND_CLAUSE:
+        ast_dfs(node->cond_clause.test, table);
+        ast_dfs(node->cond_clause.recipient, table);
+        ast_dfs(node->cond_clause.body, table);
+        break;
+
+    case AST_CASE:
+        ast_dfs(node->case_expr.key, table);
+        ast_dfs(node->case_expr.clauses, table);
+        ast_dfs(node->case_expr.else_clause, table);
+        break;
+
+    case AST_CASE_CLAUSE:
+        ast_dfs(node->case_clause.data, table);
+        ast_dfs(node->case_clause.body, table);
+        break;
+
+    case AST_AND:
+        ast_dfs(node->logical.tests, table);
+        break;
+
+    case AST_OR:
+        ast_dfs(node->logical.tests, table);
+        break;
+
+    case AST_LET:
+        ast_dfs(node->let_expr.bindings, table);
+        ast_dfs(node->let_expr.body, table);
+        break;
+
+    case AST_LET_STAR:
+        ast_dfs(node->let_expr.bindings, table);
+        ast_dfs(node->let_expr.body, table);
+        break;
+
+    case AST_LETREC:
+        ast_dfs(node->let_expr.bindings, table);
+        ast_dfs(node->let_expr.body, table);
+        break;
+
+    case AST_NAMED_LET:
+        ast_dfs(node->let_expr.bindings, table);
+        ast_dfs(node->let_expr.body, table);
+        break;
+
+    case AST_BINDING:
+        ast_dfs(node->binding.value, table);
+        break;
+
+    case AST_BEGIN:
+        ast_dfs(node->list.item, table);
+        break;
+
+    case AST_DO:
+        ast_dfs(node->do_expr.specs, table);
+        ast_dfs(node->do_expr.test, table);
+        ast_dfs(node->do_expr.result, table);
+        ast_dfs(node->do_expr.commands, table);
+        break;
+
+    case AST_ITER_SPEC:
+        ast_dfs(node->iter_spec.init, table);
+        ast_dfs(node->iter_spec.step, table);
+        break;
+
+    case AST_DELAY:
+        ast_dfs(node->delay.expression, table);
+        break;
+
+    case AST_VECTOR:
+        ast_dfs(node->vector.elements, table);
+        break;
+
+    default:
         break;
     }
 }

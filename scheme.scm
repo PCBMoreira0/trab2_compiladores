@@ -1,3 +1,5 @@
-(define limite 100)
-(set! limite 200)
-(set! x (+ 1 2))
+(define x 10)
+
+((lambda (y)
+   (+ x y))
+ 5)
