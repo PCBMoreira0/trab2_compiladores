@@ -196,6 +196,12 @@ typedef struct ASTNode
         /* folhas: variavel, numero, booleano, string, caractere */
         char *value_str;
     };
+
+    /* escopo visivel neste no', preenchido na primeira passada (ast_dfs).
+     * E' uma copia profunda do escopo corrente da tabela de simbolos, para
+     * que a segunda passada possa consultar os simbolos sem depender da
+     * tabela ainda estar montada. Liberado em ast_free. */
+    Scope *scope;
 } ASTNode;
 
 /* ----- listas genericas ----- */
@@ -241,5 +247,18 @@ ASTNode *ast_create_character(char *value);
 /* ----- impressao ----- */
 void ast_print(ASTNode *node, int level);
 
+/* escreve no buffer o nome do tipo do no' (ex: "AST_LAMBDA") */
+void ast_type_to_string(ASTNode *node, char *buffer);
+
+/* imprime o tipo do no' e a cadeia de escopos guardada nele (depuracao) */
+void ast_print_scope(ASTNode *node);
+
+/* percorre a arvore inteira imprimindo o escopo guardado em cada no' */
+void ast_print_scopes(ASTNode *node);
+
 /* ----- analise semantica ----- */
 void ast_dfs(ASTNode *node, SymbolTable *table);
+void ast_dfs_second(ASTNode *node, SymbolTable *table);
+
+/* ----- liberacao ----- */
+void ast_free(ASTNode *node);

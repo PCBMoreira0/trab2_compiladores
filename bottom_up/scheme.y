@@ -404,12 +404,19 @@ int main(int argc, char **argv) {
     yyparse();
 
     printf("\n===== AST =====\n");
-    ast_print(ast_root, 0);
     printf("===============\n");
+    ast_print(ast_root, 0);
 
+    printf("\n===== SYMBOL TABLE =====\n");
+    printf("===============\n");
     SymbolTable *table = symtab_create();
     ast_dfs(ast_root, table);
-    symtab_print(table);
+
+    ast_print_scopes(ast_root);
+
+    printf("\n===== VERIFICAÇÃO =====\n");
+    printf("===============\n");
+    ast_dfs_second(ast_root, table);
 
     if (yyin != stdin) {
         fclose(yyin);

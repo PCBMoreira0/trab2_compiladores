@@ -2,12 +2,14 @@
 #include "symbol_tab.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 /* helper interno: aloca um no' ja' com o tipo preenchido */
 static ASTNode *ast_new(ASTNodeType type)
 {
     ASTNode *node = malloc(sizeof(ASTNode));
     node->type = type;
+    node->scope = NULL;
     return node;
 }
 
@@ -478,6 +480,257 @@ void ast_print(ASTNode *node, int level)
     }
 }
 
+void ast_type_to_string(ASTNode *node, char *buffer)
+{
+    if (node == NULL)
+    {
+        strcpy(buffer, "NULL");
+        return;
+    }
+
+    switch (node->type)
+    {
+    case AST_LIST:
+        strcpy(buffer, "AST_LIST");
+        break;
+    case AST_DEFINE_VAR:
+        strcpy(buffer, "AST_DEFINE_VAR");
+        break;
+    case AST_DEFINE_FUNC:
+        strcpy(buffer, "AST_DEFINE_FUNC");
+        break;
+    case AST_LAMBDA:
+        strcpy(buffer, "AST_LAMBDA");
+        break;
+    case AST_IF:
+        strcpy(buffer, "AST_IF");
+        break;
+    case AST_SET:
+        strcpy(buffer, "AST_SET");
+        break;
+    case AST_CALL:
+        strcpy(buffer, "AST_CALL");
+        break;
+    case AST_QUOTE:
+        strcpy(buffer, "AST_QUOTE");
+        break;
+    case AST_COND:
+        strcpy(buffer, "AST_COND");
+        break;
+    case AST_COND_CLAUSE:
+        strcpy(buffer, "AST_COND_CLAUSE");
+        break;
+    case AST_CASE:
+        strcpy(buffer, "AST_CASE");
+        break;
+    case AST_CASE_CLAUSE:
+        strcpy(buffer, "AST_CASE_CLAUSE");
+        break;
+    case AST_AND:
+        strcpy(buffer, "AST_AND");
+        break;
+    case AST_OR:
+        strcpy(buffer, "AST_OR");
+        break;
+    case AST_LET:
+        strcpy(buffer, "AST_LET");
+        break;
+    case AST_LET_STAR:
+        strcpy(buffer, "AST_LET_STAR");
+        break;
+    case AST_LETREC:
+        strcpy(buffer, "AST_LETREC");
+        break;
+    case AST_NAMED_LET:
+        strcpy(buffer, "AST_NAMED_LET");
+        break;
+    case AST_BINDING:
+        strcpy(buffer, "AST_BINDING");
+        break;
+    case AST_BEGIN:
+        strcpy(buffer, "AST_BEGIN");
+        break;
+    case AST_DO:
+        strcpy(buffer, "AST_DO");
+        break;
+    case AST_ITER_SPEC:
+        strcpy(buffer, "AST_ITER_SPEC");
+        break;
+    case AST_DELAY:
+        strcpy(buffer, "AST_DELAY");
+        break;
+    case AST_VECTOR:
+        strcpy(buffer, "AST_VECTOR");
+        break;
+    case AST_VARIABLE:
+        strcpy(buffer, "AST_VARIABLE");
+        break;
+    case AST_NUMBER:
+        strcpy(buffer, "AST_NUMBER");
+        break;
+    case AST_BOOLEAN:
+        strcpy(buffer, "AST_BOOLEAN");
+        break;
+    case AST_STRING:
+        strcpy(buffer, "AST_STRING");
+        break;
+    case AST_CHARACTER:
+        strcpy(buffer, "AST_CHARACTER");
+        break;
+    default:
+        strcpy(buffer, "DESCONHECIDO");
+        break;
+    }
+}
+void ast_print_scope(ASTNode *node)
+{
+    if (node == NULL)
+        return;
+
+    char tipo[32];
+    ast_type_to_string(node, tipo);
+    printf("=== %s ===\n", tipo);
+
+    int depth = 0;
+    for (Scope *sc = node->scope; sc; sc = sc->parent)
+        depth++;
+
+    // imprime do escopo mais interno (topo da pilha) ate o global
+    int a = depth - 1;
+    for (Scope *sc = node->scope; sc; sc = sc->parent, a--)
+    {
+        printf("-- Escopo %d%s --\n", a, a == 0 ? " (global)" : "");
+        for (Symbol *s = sc->symbols; s; s = s->next)
+        {
+            if (s->is_primitive) // nao imprime os procedimentos embutidos
+                continue;
+            printf("   %-20s [%s]\n", s->name,
+                   s->initialized ? "inicializado" : "nao inicializado");
+        }
+    }
+}
+
+/* percorre a arvore inteira imprimindo o escopo guardado em cada no' */
+void ast_print_scopes(ASTNode *node)
+{
+    if (node == NULL)
+        return;
+
+    ast_print_scope(node);
+
+    /* recursa pelos filhos de acordo com a variante do no' */
+    switch (node->type)
+    {
+    case AST_LIST:
+        ast_print_scopes(node->list.item);
+        ast_print_scopes(node->list.next);
+        break;
+
+    case AST_DEFINE_VAR:
+        ast_print_scopes(node->define_var.name);
+        ast_print_scopes(node->define_var.value);
+        break;
+
+    case AST_DEFINE_FUNC:
+    case AST_LAMBDA:
+        ast_print_scopes(node->func.name);
+        ast_print_scopes(node->func.params);
+        ast_print_scopes(node->func.rest_param);
+        ast_print_scopes(node->func.body);
+        break;
+
+    case AST_IF:
+        ast_print_scopes(node->if_expr.condition);
+        ast_print_scopes(node->if_expr.then_branch);
+        ast_print_scopes(node->if_expr.else_branch);
+        break;
+
+    case AST_SET:
+        ast_print_scopes(node->set_expr.name);
+        ast_print_scopes(node->set_expr.value);
+        break;
+
+    case AST_CALL:
+        ast_print_scopes(node->call.operator_);
+        ast_print_scopes(node->call.operands);
+        break;
+
+    case AST_QUOTE:
+        ast_print_scopes(node->quote.datum);
+        break;
+
+    case AST_COND:
+        ast_print_scopes(node->cond.clauses);
+        ast_print_scopes(node->cond.else_clause);
+        break;
+
+    case AST_COND_CLAUSE:
+        ast_print_scopes(node->cond_clause.test);
+        ast_print_scopes(node->cond_clause.body);
+        ast_print_scopes(node->cond_clause.recipient);
+        break;
+
+    case AST_CASE:
+        ast_print_scopes(node->case_expr.key);
+        ast_print_scopes(node->case_expr.clauses);
+        ast_print_scopes(node->case_expr.else_clause);
+        break;
+
+    case AST_CASE_CLAUSE:
+        ast_print_scopes(node->case_clause.data);
+        ast_print_scopes(node->case_clause.body);
+        break;
+
+    case AST_AND:
+    case AST_OR:
+        ast_print_scopes(node->logical.tests);
+        break;
+
+    case AST_LET:
+    case AST_LET_STAR:
+    case AST_LETREC:
+    case AST_NAMED_LET:
+        ast_print_scopes(node->let_expr.name);
+        ast_print_scopes(node->let_expr.bindings);
+        ast_print_scopes(node->let_expr.body);
+        break;
+
+    case AST_BINDING:
+        ast_print_scopes(node->binding.name);
+        ast_print_scopes(node->binding.value);
+        break;
+
+    case AST_BEGIN:
+        ast_print_scopes(node->list.item);
+        break;
+
+    case AST_DO:
+        ast_print_scopes(node->do_expr.specs);
+        ast_print_scopes(node->do_expr.test);
+        ast_print_scopes(node->do_expr.result);
+        ast_print_scopes(node->do_expr.commands);
+        break;
+
+    case AST_ITER_SPEC:
+        ast_print_scopes(node->iter_spec.name);
+        ast_print_scopes(node->iter_spec.init);
+        ast_print_scopes(node->iter_spec.step);
+        break;
+
+    case AST_DELAY:
+        ast_print_scopes(node->delay.expression);
+        break;
+
+    case AST_VECTOR:
+        ast_print_scopes(node->vector.elements);
+        break;
+
+    default:
+        /* folhas: nada a recursar */
+        break;
+    }
+}
+
 void ast_dfs(ASTNode *node, SymbolTable *table)
 {
     if (node == NULL)
@@ -490,8 +743,17 @@ void ast_dfs(ASTNode *node, SymbolTable *table)
         ast_dfs(node->list.next, table);
         break;
 
+    case AST_VARIABLE:
+        node->scope = table->current;
+        break;
+
     case AST_DEFINE_VAR:
+        symtab_insert(table, node->define_var.name->value_str);
         ast_dfs(node->define_var.value, table);
+        node->scope = table->current;
+        // if (node->scope != NULL)
+        //     scope_free(node->scope);
+        // node->scope = scope_copy(table->current);
         break;
 
     case AST_DEFINE_FUNC:
@@ -517,6 +779,11 @@ void ast_dfs(ASTNode *node, SymbolTable *table)
         }
 
         ast_dfs(node->func.body, table);
+
+        // if (node->scope != NULL)
+        //     scope_free(node->scope);
+        // node->scope = scope_copy(table->current);
+        node->scope = table->current;
 
         symtab_exit_scope(table);
         break;
@@ -621,4 +888,297 @@ void ast_dfs(ASTNode *node, SymbolTable *table)
     default:
         break;
     }
+}
+
+void ast_dfs_second(ASTNode *node, SymbolTable *table)
+{
+    if (node == NULL)
+        return;
+
+    Scope *s = node->scope;
+    switch (node->type)
+    {
+    case AST_LIST:
+        ast_dfs_second(node->list.item, table);
+        ast_dfs_second(node->list.next, table);
+        break;
+
+    case AST_VARIABLE:
+        if (symtab_lookup_scope(s, node->value_str) == NULL)
+        {
+            printf("Erro semantico: parametro '%s' não declarado.\n", node->value_str);
+        }
+        break;
+
+    case AST_DEFINE_VAR:
+    {
+        if (symtab_lookup_scope(s, node->define_var.name->value_str) == NULL)
+        {
+            printf("DEFINE VAR: ERRO, NÃO DECLARADO A VARIÁVEL: %s\n", node->define_var.name->value_str);
+        }
+        else
+        {
+            printf("DEFINE VAR: CERTO, DECLARADA A VARIÁVEL: %s\n", node->define_var.name->value_str);
+        }
+        ast_dfs_second(node->define_var.value, table);
+        break;
+    }
+
+    case AST_DEFINE_FUNC:
+        ast_dfs_second(node->func.params, table);
+        ast_dfs_second(node->func.body, table);
+        break;
+
+    case AST_LAMBDA:
+    {
+        for (ASTNode *p = node->func.params; p != NULL; p = p->list.next)
+        {
+            ASTNode *var = p->list.item;
+            if (symtab_lookup_scope(s, var->value_str) == NULL)
+            {
+                printf("Erro semantico: parametro '%s' não declarado.\n", var->value_str);
+            }
+        }
+        if (node->func.rest_param != NULL)
+        {
+            if (symtab_lookup_scope(s, node->func.rest_param->value_str) == NULL)
+            {
+                printf("Erro semantico: parametro '%s' não declarado.\n", node->func.rest_param->value_str);
+            }
+        }
+        ast_dfs_second(node->func.body, table);
+        break;
+    }
+
+    case AST_IF:
+        ast_dfs_second(node->if_expr.condition, table);
+        ast_dfs_second(node->if_expr.then_branch, table);
+        ast_dfs_second(node->if_expr.else_branch, table);
+        break;
+
+    case AST_SET:
+        ast_dfs_second(node->set_expr.value, table);
+        break;
+
+    case AST_CALL:
+        ast_dfs_second(node->call.operator_, table);
+        ast_dfs_second(node->call.operands, table);
+        break;
+
+    case AST_QUOTE:
+        ast_dfs_second(node->quote.datum, table);
+        break;
+
+    case AST_COND:
+        ast_dfs_second(node->cond.clauses, table);
+        ast_dfs_second(node->cond.else_clause, table);
+        break;
+
+    case AST_COND_CLAUSE:
+        ast_dfs_second(node->cond_clause.test, table);
+        ast_dfs_second(node->cond_clause.recipient, table);
+        ast_dfs_second(node->cond_clause.body, table);
+        break;
+
+    case AST_CASE:
+        ast_dfs_second(node->case_expr.key, table);
+        ast_dfs_second(node->case_expr.clauses, table);
+        ast_dfs_second(node->case_expr.else_clause, table);
+        break;
+
+    case AST_CASE_CLAUSE:
+        ast_dfs_second(node->case_clause.data, table);
+        ast_dfs_second(node->case_clause.body, table);
+        break;
+
+    case AST_AND:
+        ast_dfs_second(node->logical.tests, table);
+        break;
+
+    case AST_OR:
+        ast_dfs_second(node->logical.tests, table);
+        break;
+
+    case AST_LET:
+        ast_dfs_second(node->let_expr.bindings, table);
+        ast_dfs_second(node->let_expr.body, table);
+        break;
+
+    case AST_LET_STAR:
+        ast_dfs_second(node->let_expr.bindings, table);
+        ast_dfs_second(node->let_expr.body, table);
+        break;
+
+    case AST_LETREC:
+        ast_dfs_second(node->let_expr.bindings, table);
+        ast_dfs_second(node->let_expr.body, table);
+        break;
+
+    case AST_NAMED_LET:
+        ast_dfs_second(node->let_expr.bindings, table);
+        ast_dfs_second(node->let_expr.body, table);
+        break;
+
+    case AST_BINDING:
+        ast_dfs_second(node->binding.value, table);
+        break;
+
+    case AST_BEGIN:
+        ast_dfs_second(node->list.item, table);
+        break;
+
+    case AST_DO:
+        ast_dfs_second(node->do_expr.specs, table);
+        ast_dfs_second(node->do_expr.test, table);
+        ast_dfs_second(node->do_expr.result, table);
+        ast_dfs_second(node->do_expr.commands, table);
+        break;
+
+    case AST_ITER_SPEC:
+        ast_dfs_second(node->iter_spec.init, table);
+        ast_dfs_second(node->iter_spec.step, table);
+        break;
+
+    case AST_DELAY:
+        ast_dfs_second(node->delay.expression, table);
+        break;
+
+    case AST_VECTOR:
+        ast_dfs_second(node->vector.elements, table);
+        break;
+
+    default:
+        break;
+    }
+}
+
+/* ----- liberacao ----- */
+
+void ast_free(ASTNode *node)
+{
+    if (node == NULL)
+        return;
+
+    /* libera os filhos de acordo com a variante do no' */
+    switch (node->type)
+    {
+    case AST_LIST:
+        ast_free(node->list.item);
+        ast_free(node->list.next);
+        break;
+
+    case AST_DEFINE_VAR:
+        ast_free(node->define_var.name);
+        ast_free(node->define_var.value);
+        break;
+
+    case AST_DEFINE_FUNC:
+    case AST_LAMBDA:
+        ast_free(node->func.name);
+        ast_free(node->func.params);
+        ast_free(node->func.rest_param);
+        ast_free(node->func.body);
+        break;
+
+    case AST_IF:
+        ast_free(node->if_expr.condition);
+        ast_free(node->if_expr.then_branch);
+        ast_free(node->if_expr.else_branch);
+        break;
+
+    case AST_SET:
+        ast_free(node->set_expr.name);
+        ast_free(node->set_expr.value);
+        break;
+
+    case AST_CALL:
+        ast_free(node->call.operator_);
+        ast_free(node->call.operands);
+        break;
+
+    case AST_QUOTE:
+        ast_free(node->quote.datum);
+        break;
+
+    case AST_COND:
+        ast_free(node->cond.clauses);
+        ast_free(node->cond.else_clause);
+        break;
+
+    case AST_COND_CLAUSE:
+        ast_free(node->cond_clause.test);
+        ast_free(node->cond_clause.body);
+        ast_free(node->cond_clause.recipient);
+        break;
+
+    case AST_CASE:
+        ast_free(node->case_expr.key);
+        ast_free(node->case_expr.clauses);
+        ast_free(node->case_expr.else_clause);
+        break;
+
+    case AST_CASE_CLAUSE:
+        ast_free(node->case_clause.data);
+        ast_free(node->case_clause.body);
+        break;
+
+    case AST_AND:
+    case AST_OR:
+        ast_free(node->logical.tests);
+        break;
+
+    case AST_LET:
+    case AST_LET_STAR:
+    case AST_LETREC:
+    case AST_NAMED_LET:
+        ast_free(node->let_expr.name);
+        ast_free(node->let_expr.bindings);
+        ast_free(node->let_expr.body);
+        break;
+
+    case AST_BINDING:
+        ast_free(node->binding.name);
+        ast_free(node->binding.value);
+        break;
+
+    case AST_BEGIN:
+        ast_free(node->list.item);
+        break;
+
+    case AST_DO:
+        ast_free(node->do_expr.specs);
+        ast_free(node->do_expr.test);
+        ast_free(node->do_expr.result);
+        ast_free(node->do_expr.commands);
+        break;
+
+    case AST_ITER_SPEC:
+        ast_free(node->iter_spec.name);
+        ast_free(node->iter_spec.init);
+        ast_free(node->iter_spec.step);
+        break;
+
+    case AST_DELAY:
+        ast_free(node->delay.expression);
+        break;
+
+    case AST_VECTOR:
+        ast_free(node->vector.elements);
+        break;
+
+    case AST_VARIABLE:
+    case AST_NUMBER:
+    case AST_BOOLEAN:
+    case AST_STRING:
+    case AST_CHARACTER:
+        free(node->value_str);
+        break;
+
+    default:
+        break;
+    }
+
+    /* libera a copia do escopo guardada na primeira passada */
+    scope_free(node->scope);
+    free(node);
 }
