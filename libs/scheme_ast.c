@@ -748,12 +748,12 @@ void ast_dfs(ASTNode *node, SymbolTable *table)
         break;
 
     case AST_DEFINE_VAR:
-        symtab_insert(table, node->define_var.name->value_str);
+        if(symtab_insert(table, node->define_var.name->value_str) == NULL)
+        {
+            printf("Erro semantico: parametro '%s' duplicado no define\n", node->define_var.name->value_str);
+        }
         ast_dfs(node->define_var.value, table);
         node->scope = table->current;
-        // if (node->scope != NULL)
-        //     scope_free(node->scope);
-        // node->scope = scope_copy(table->current);
         break;
 
     case AST_DEFINE_FUNC:
@@ -768,8 +768,7 @@ void ast_dfs(ASTNode *node, SymbolTable *table)
             ASTNode *var = p->list.item;
             if (symtab_insert(table, var->value_str) == NULL)
             {
-                fprintf(stderr,
-                        "Erro semantico: parametro '%s' duplicado no lambda\n",
+                printf("Erro semantico: parametro '%s' duplicado no lambda\n",
                         var->value_str);
             }
         }
@@ -931,21 +930,6 @@ void ast_dfs_second(ASTNode *node, SymbolTable *table)
 
     case AST_LAMBDA:
     {
-        for (ASTNode *p = node->func.params; p != NULL; p = p->list.next)
-        {
-            ASTNode *var = p->list.item;
-            if (symtab_lookup_scope(s, var->value_str) == NULL)
-            {
-                printf("Erro semantico: parametro '%s' não declarado.\n", var->value_str);
-            }
-        }
-        if (node->func.rest_param != NULL)
-        {
-            if (symtab_lookup_scope(s, node->func.rest_param->value_str) == NULL)
-            {
-                printf("Erro semantico: parametro '%s' não declarado.\n", node->func.rest_param->value_str);
-            }
-        }
         ast_dfs_second(node->func.body, table);
         break;
     }

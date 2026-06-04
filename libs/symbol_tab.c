@@ -11,7 +11,7 @@
  * (define, lambda, if, set!, quote, begin, let, let*, letrec, cond, case, and,
  * or, do, delay, else, =>) NAO entram aqui: sao palavras-chave sintaticas
  * tratadas diretamente pela gramatica, nunca aparecem como variavel/operador. */
-static const char *PRIMITIVOS[] = {
+static const char *PRIMITIVES[] = {
     /* equivalencia */
     "eq?", "eqv?", "equal?",
 
@@ -88,10 +88,10 @@ static const char *PRIMITIVOS[] = {
 
 void symtab_seed_primitives(SymbolTable *t)
 {
-    size_t n = sizeof(PRIMITIVOS) / sizeof(PRIMITIVOS[0]);
+    size_t n = sizeof(PRIMITIVES) / sizeof(PRIMITIVES[0]);
     for (size_t i = 0; i < n; i++)
     {
-        Symbol *s = symtab_insert(t, PRIMITIVOS[i]);
+        Symbol *s = symtab_insert(t, PRIMITIVES[i]);
         if (s)
         {
             s->initialized = 1;  // primitivos ja' vem "inicializados"
@@ -152,16 +152,9 @@ Symbol *symtab_lookup_current_scope(Scope *t, const char *name)
 
 Symbol *symtab_insert(SymbolTable *t, const char *name)
 {
+    
+    if (symtab_lookup_current(t, name) != NULL) return NULL;
     Symbol *s = malloc(sizeof(Symbol));
-
-    if (symtab_lookup_current(t, name) != NULL)
-    {
-        s->initialized = 1;
-    }
-    else
-    {
-        s->initialized = 0;
-    }
     s->name = strdup(name);
     s->is_primitive = 0;
     s->next = t->current->symbols;

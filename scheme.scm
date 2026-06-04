@@ -1,4 +1,5 @@
 (define x 10)
-((lambda (y)
+(define x 10)
+((lambda (y y)
    (+ x y))
  5)
