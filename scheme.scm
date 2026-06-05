@@ -1,6 +1,7 @@
-(define x 10)        ; 
-
-(define (f y a b c)
-  (define y 5) 
-  (define a 99); 
-  y)
+(if (> 5 3)
+    (begin
+      (display "Entrou no verdadeiro")
+      (+ 2 4))
+    (begin
+      (display "Entrou no falso")
+      (+ 1 1)))

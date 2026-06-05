@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-
-void translator_print_indent(FILE* out, int identation) {
-    for (int i = 0; i < identation * 4; i++) {
+void translator_print_indent(FILE *out, int identation)
+{
+    for (int i = 0; i < identation * 4; i++)
+    {
         fputc(' ', out);
     }
 }
@@ -22,28 +23,111 @@ void assign(ASTNode *node, FILE *file, int identation)
     fprintf(file, "\n");
 }
 
-void define_func(ASTNode *node, FILE *file, int identation){
+void define_func(ASTNode *node, FILE *file, int identation)
+{
     char *func_name = node->func.name->value_str;
-    fprintf(file, "def %s(",func_name);
+    fprintf(file, "def %s(", func_name);
     ASTNode *p = node->func.params;
-    if (p != NULL) {
-        for (;p->list.next != NULL; p = p->list.next){
-            fprintf(file, "%s, ",p->list.item->value_str);
+    if (p != NULL)
+    {
+        for (; p->list.next != NULL; p = p->list.next)
+        {
+            translate(p->list.item, file, identation);
+            fprintf(file, ", ");
         }
-        
-        fprintf(file, "%s", p->list.item->value_str);
-        
+
+        translate(p->list.item, file, identation);
     }
     fprintf(file, "):\n");
     ASTNode *b = node->func.body;
-    for (; b->list.next != NULL; b = b->list.next){
+    for (; b->list.next != NULL; b = b->list.next)
+    {
         translate(b->list.item, file, identation + 1);
     }
     translator_print_indent(file, identation + 1);
     fprintf(file, "return ");
     translate(b->list.item, file, identation);
-    
+}
 
+void let(ASTNode *node, FILE *file, int identation)
+{
+    if (node->let_expr.body->list.next != NULL)
+    {
+        fprintf(file, "NÃO SUPORTADO");
+        return;
+    }
+
+    fprintf(file, "(lambda ");
+    ASTNode *i;
+    for (i = node->let_expr.bindings; i->list.next != NULL; i = i->list.next)
+    {
+        fprintf(file, "%s, ", i->list.item->binding.name->value_str);
+    }
+    fprintf(file, "%s: ", i->list.item->binding.name->value_str);
+
+    translate(node->let_expr.body->list.item, file, identation);
+
+    fprintf(file, ")(");
+    for (i = node->let_expr.bindings; i->list.next != NULL; i = i->list.next)
+    {
+        translate(i->list.item->binding.value, file, identation);
+        fprintf(file, ", ");
+    }
+    translate(i->list.item->binding.value, file, identation);
+    fprintf(file, ")");
+}
+
+void let_star_bindings(ASTNode *binding_list, ASTNode *body, FILE *file, int identation)
+{
+    // Sem mais ligações: chegamos ao corpo do let*
+    if (binding_list == NULL)
+    {
+        translate(body->list.item, file, identation);
+        return;
+    }
+
+    ASTNode *bind = binding_list->list.item;
+
+    // (lambda nome: <restante das ligações + corpo>)(valor)
+    fprintf(file, "(lambda %s: ", bind->binding.name->value_str);
+    let_star_bindings(binding_list->list.next, body, file, identation);
+    fprintf(file, ")(");
+    translate(bind->binding.value, file, identation);
+    fprintf(file, ")");
+}
+
+void let_star(ASTNode *node, FILE *file, int identation)
+{
+    if (node->let_expr.body->list.next != NULL)
+    {
+        fprintf(file, "NÃO SUPORTADO");
+        return;
+    }
+
+    let_star_bindings(node->let_expr.bindings, node->let_expr.body, file, identation);
+}
+
+void let_named(ASTNode *node, FILE *file, int identation){
+    ASTNode f;
+    f.type = AST_DEFINE_FUNC;
+    f.func.name = node->let_expr.name;
+    f.func.body = node->let_expr.body;
+    f.func.params = node->let_expr.bindings;
+    define_func(&f, file, identation);
+}
+
+void call(ASTNode *node, FILE *file, int identation){
+    translate(node->call.operands->list.item, file, identation);
+    translate(node->call.operator_, file, identation);
+    translate(node->call.operands->list.next, file, identation);
+}
+
+void if_ternary(ASTNode *node, FILE *file, int identation){
+
+}
+
+void if_statement(ASTNode *node, FILE *file, int identation){
+    if(node->if_expr.then_branch->list.next == NULL) printf("SIMMM");
 }
 
 // void op(ASTNode *node, FILE *file)
@@ -77,7 +161,6 @@ void define_func(ASTNode *node, FILE *file, int identation){
 //     }
 // }
 
-
 // void while_stmt(ASTNode *node, FILE *file, int identation)
 // {
 //     translator_print_indent(file, identation);
@@ -87,31 +170,47 @@ void define_func(ASTNode *node, FILE *file, int identation){
 //     translate(node->while_stmt.body, file, identation + 1);
 // }
 
- 
-
 void translate(ASTNode *node, FILE *file, int identation)
 {
-    if (node == NULL) return;
+    if (node == NULL)
+        return;
     switch (node->type)
     {
-        case AST_LIST:
-            translate(node->list.item, file, identation);
-            translate(node->list.next, file, identation);
-            break;
-        case AST_DEFINE_VAR:
-            assign(node, file, identation);
-            break;
-        case AST_VARIABLE:
-            fprintf(file, "%s",node->value_str);
-            break;
-        case AST_NUMBER:
-            fprintf(file, "%s", node->value_str);
-            break;
-        case AST_DEFINE_FUNC:
-            define_func(node, file, identation);
-            break;
-        
-        default:
-            break;
+    case AST_LIST:
+        translate(node->list.item, file, identation);
+        translate(node->list.next, file, identation);
+        break;
+    case AST_DEFINE_VAR:
+        assign(node, file, identation);
+        break;
+    case AST_VARIABLE:
+        fprintf(file, "%s", node->value_str);
+        break;
+    case AST_NUMBER:
+        fprintf(file, "%s", node->value_str);
+        break;
+    case AST_DEFINE_FUNC:
+        define_func(node, file, identation);
+        break;
+    case AST_LET:
+        let(node, file, identation);
+        break;
+    case AST_LET_STAR:
+        let_star(node, file, identation);
+        break;
+    case AST_NAMED_LET:
+        break;
+    case AST_CALL:
+        call(node, file, identation);
+        break;
+    case AST_BINDING:
+        translate(node->binding.name, file, identation);
+        translate(node->binding.value, file, identation);
+        break;
+    case AST_IF:
+        if_statement(node, file, identation);
+        break;
+    default:
+        break;
     }
 }
