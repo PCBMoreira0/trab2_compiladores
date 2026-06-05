@@ -4,16 +4,16 @@
 #include <stdio.h>
 #include <string.h>
 
-/* helper interno: aloca um no' ja' com o tipo preenchido */
+extern int yylineno;
+
 static ASTNode *ast_new(ASTNodeType type)
 {
     ASTNode *node = malloc(sizeof(ASTNode));
     node->type = type;
+    node->linha = yylineno;
     node->scope = NULL;
     return node;
 }
-
-/* ----- listas genericas ----- */
 
 ASTNode *ast_create_list(ASTNode *item, ASTNode *next)
 {
@@ -23,8 +23,6 @@ ASTNode *ast_create_list(ASTNode *item, ASTNode *next)
     return node;
 }
 
-/* adiciona um item ao fim da lista (util nas regras left-recursive da
- * gramatica, que constroem listas da esquerda para a direita) */
 ASTNode *ast_list_append(ASTNode *list, ASTNode *item)
 {
     ASTNode *novo = ast_create_list(item, NULL);
@@ -39,8 +37,6 @@ ASTNode *ast_list_append(ASTNode *list, ASTNode *item)
 
     return list;
 }
-
-/* ----- definicoes ----- */
 
 ASTNode *ast_create_define_var(ASTNode *name, ASTNode *value)
 {
@@ -59,8 +55,6 @@ ASTNode *ast_create_define_func(ASTNode *name, ASTNode *params, ASTNode *rest_pa
     node->func.body = body;
     return node;
 }
-
-/* ----- expressoes ----- */
 
 ASTNode *ast_create_lambda(ASTNode *params, ASTNode *rest_param, ASTNode *body)
 {
@@ -103,8 +97,6 @@ ASTNode *ast_create_quote(ASTNode *datum)
     node->quote.datum = datum;
     return node;
 }
-
-/* ----- expressoes derivadas ----- */
 
 ASTNode *ast_create_cond(ASTNode *clauses, ASTNode *else_clause)
 {
@@ -154,7 +146,6 @@ ASTNode *ast_create_or(ASTNode *tests)
     return node;
 }
 
-/* helper interno para os quatro tipos de let */
 static ASTNode *ast_make_let(ASTNodeType type, ASTNode *name, ASTNode *bindings, ASTNode *body)
 {
     ASTNode *node = ast_new(type);
@@ -233,8 +224,6 @@ ASTNode *ast_create_vector(ASTNode *elements)
     return node;
 }
 
-/* ----- folhas ----- */
-
 ASTNode *ast_create_variable(char *name)
 {
     ASTNode *node = ast_new(AST_VARIABLE);
@@ -270,16 +259,12 @@ ASTNode *ast_create_character(char *value)
     return node;
 }
 
-/* ----- impressao ----- */
-
 static void ast_print_indent(int level)
 {
     for (int i = 0; i < level; i++)
         printf("  | ");
 }
 
-/* imprime um rotulo indentado seguido de uma sublista, util para os varios
- * campos que sao listas (operandos, corpo, ligacoes, ...) */
 static void ast_print_field(const char *label, ASTNode *node, int level)
 {
     ast_print_indent(level);
@@ -297,8 +282,7 @@ void ast_print(ASTNode *node, int level)
     switch (node->type)
     {
     case AST_LIST:
-        /* a lista nao imprime um cabecalho proprio: apenas encadeia os itens
-         * no mesmo nivel (igual ao AST_BLOCK do modelo base) */
+
         printf("Item da lista:\n");
         ast_print(node->list.item, level + 1);
         ast_print(node->list.next, level);
@@ -480,15 +464,9 @@ void ast_print(ASTNode *node, int level)
     }
 }
 
-void ast_type_to_string(ASTNode *node, char *buffer)
+void ast_type_to_string(ASTNodeType type, char *buffer)
 {
-    if (node == NULL)
-    {
-        strcpy(buffer, "NULL");
-        return;
-    }
-
-    switch (node->type)
+    switch (type)
     {
     case AST_LIST:
         strcpy(buffer, "AST_LIST");
@@ -588,29 +566,33 @@ void ast_print_scope(ASTNode *node)
         return;
 
     char tipo[32];
-    ast_type_to_string(node, tipo);
+    ast_type_to_string(node->type, tipo);
     printf("=== %s ===\n", tipo);
 
     int depth = 0;
     for (Scope *sc = node->scope; sc; sc = sc->parent)
         depth++;
 
-    // imprime do escopo mais interno (topo da pilha) ate o global
-    int a = depth - 1;
-    for (Scope *sc = node->scope; sc; sc = sc->parent, a--)
+    Scope **scopes = malloc(depth * sizeof(Scope *));
+    int idx = depth - 1;
+    for (Scope *sc = node->scope; sc; sc = sc->parent)
+        scopes[idx--] = sc;
+
+    for (int level = 0; level < depth; level++)
     {
-        printf("-- Escopo %d%s --\n", a, a == 0 ? " (global)" : "");
+        Scope *sc = scopes[level];
+        int indent = level * 4;
+        printf("%*s-- Escopo %d%s --\n", indent, "", level, level == 0 ? " (global)" : "");
         for (Symbol *s = sc->symbols; s; s = s->next)
         {
-            if (s->is_primitive) // nao imprime os procedimentos embutidos
+            if (s->is_primitive)
                 continue;
-            printf("   %-20s [%s]\n", s->name,
-                   s->initialized ? "inicializado" : "nao inicializado");
+            printf("%*s%s\n", indent + 3, "", s->name);
         }
     }
+    free(scopes);
 }
 
-/* percorre a arvore inteira imprimindo o escopo guardado em cada no' */
 void ast_print_scopes(ASTNode *node)
 {
     if (node == NULL)
@@ -618,7 +600,6 @@ void ast_print_scopes(ASTNode *node)
 
     ast_print_scope(node);
 
-    /* recursa pelos filhos de acordo com a variante do no' */
     switch (node->type)
     {
     case AST_LIST:
@@ -726,9 +707,21 @@ void ast_print_scopes(ASTNode *node)
         break;
 
     default:
-        /* folhas: nada a recursar */
+
         break;
     }
+}
+
+static void print_semantic_error(const char *msg, ASTNode *node)
+{
+    const char *nome = node->value_str;
+    if (nome == NULL)
+    {
+        static char tipo[32];
+        ast_type_to_string(node->type, tipo);
+        nome = tipo;
+    }
+    printf("Erro semantico (linha %d, %s): %s\n", node->linha, nome, msg);
 }
 
 void ast_dfs(ASTNode *node, SymbolTable *table)
@@ -744,45 +737,41 @@ void ast_dfs(ASTNode *node, SymbolTable *table)
         break;
 
     case AST_VARIABLE:
-        node->scope = table->current;
+
         break;
 
     case AST_DEFINE_VAR:
-        if(symtab_insert(table, node->define_var.name->value_str) == NULL)
+        if (symtab_insert(table, node->define_var.name->value_str) == NULL)
         {
-            printf("Erro semantico: parametro '%s' duplicado no define\n", node->define_var.name->value_str);
+            print_semantic_error("identificador duplicado", node->define_var.name);
         }
         ast_dfs(node->define_var.value, table);
-        node->scope = table->current;
-        break;
 
-    case AST_DEFINE_FUNC:
-        ast_dfs(node->func.params, table);
-        ast_dfs(node->func.body, table);
         break;
 
     case AST_LAMBDA:
+    case AST_DEFINE_FUNC:
+        if (node->func.name != NULL)
+        {
+            if (symtab_insert(table, node->func.name->value_str) == NULL)
+                print_semantic_error("identificador duplicado", node->func.name);
+        }
         symtab_enter_scope(table);
         for (ASTNode *p = node->func.params; p != NULL; p = p->list.next)
         {
             ASTNode *var = p->list.item;
             if (symtab_insert(table, var->value_str) == NULL)
             {
-                printf("Erro semantico: parametro '%s' duplicado no lambda\n",
-                        var->value_str);
+                print_semantic_error("parametro duplicado", var);
             }
         }
         if (node->func.rest_param != NULL)
         {
-            symtab_insert(table, node->func.rest_param->value_str);
+            if (symtab_insert(table, node->func.rest_param->value_str) == NULL)
+                print_semantic_error("parametro duplicado", node->func.rest_param);
         }
 
         ast_dfs(node->func.body, table);
-
-        // if (node->scope != NULL)
-        //     scope_free(node->scope);
-        // node->scope = scope_copy(table->current);
-        node->scope = table->current;
 
         symtab_exit_scope(table);
         break;
@@ -837,23 +826,61 @@ void ast_dfs(ASTNode *node, SymbolTable *table)
         break;
 
     case AST_LET:
-        ast_dfs(node->let_expr.bindings, table);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+            ast_dfs(b->list.item->binding.value, table);
+        symtab_enter_scope(table);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+        {
+            ASTNode *name = b->list.item->binding.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
         ast_dfs(node->let_expr.body, table);
+        symtab_exit_scope(table);
         break;
 
     case AST_LET_STAR:
-        ast_dfs(node->let_expr.bindings, table);
+        symtab_enter_scope(table);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+        {
+            ast_dfs(b->list.item->binding.value, table);
+            ASTNode *name = b->list.item->binding.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
         ast_dfs(node->let_expr.body, table);
+        symtab_exit_scope(table);
         break;
 
     case AST_LETREC:
-        ast_dfs(node->let_expr.bindings, table);
+        symtab_enter_scope(table);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+        {
+            ASTNode *name = b->list.item->binding.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+            ast_dfs(b->list.item->binding.value, table);
         ast_dfs(node->let_expr.body, table);
+        symtab_exit_scope(table);
         break;
 
     case AST_NAMED_LET:
-        ast_dfs(node->let_expr.bindings, table);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+            ast_dfs(b->list.item->binding.value, table);
+
+        symtab_enter_scope(table);
+        if (node->let_expr.name != NULL)
+            symtab_insert(table, node->let_expr.name->value_str);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+        {
+            ASTNode *name = b->list.item->binding.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
         ast_dfs(node->let_expr.body, table);
+        symtab_exit_scope(table);
         break;
 
     case AST_BINDING:
@@ -865,10 +892,21 @@ void ast_dfs(ASTNode *node, SymbolTable *table)
         break;
 
     case AST_DO:
-        ast_dfs(node->do_expr.specs, table);
+        for (ASTNode *s = node->do_expr.specs; s != NULL; s = s->list.next)
+            ast_dfs(s->list.item->iter_spec.init, table);
+        symtab_enter_scope(table);
+        for (ASTNode *s = node->do_expr.specs; s != NULL; s = s->list.next)
+        {
+            ASTNode *name = s->list.item->iter_spec.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
+        for (ASTNode *s = node->do_expr.specs; s != NULL; s = s->list.next)
+            ast_dfs(s->list.item->iter_spec.step, table);
         ast_dfs(node->do_expr.test, table);
         ast_dfs(node->do_expr.result, table);
         ast_dfs(node->do_expr.commands, table);
+        symtab_exit_scope(table);
         break;
 
     case AST_ITER_SPEC:
@@ -887,6 +925,8 @@ void ast_dfs(ASTNode *node, SymbolTable *table)
     default:
         break;
     }
+
+    node->scope = table->current;
 }
 
 void ast_dfs_second(ASTNode *node, SymbolTable *table)
@@ -905,26 +945,15 @@ void ast_dfs_second(ASTNode *node, SymbolTable *table)
     case AST_VARIABLE:
         if (symtab_lookup_scope(s, node->value_str) == NULL)
         {
-            printf("Erro semantico: parametro '%s' não declarado.\n", node->value_str);
+            print_semantic_error("variavel nao declarada", node);
         }
         break;
 
     case AST_DEFINE_VAR:
-    {
-        if (symtab_lookup_scope(s, node->define_var.name->value_str) == NULL)
-        {
-            printf("DEFINE VAR: ERRO, NÃO DECLARADO A VARIÁVEL: %s\n", node->define_var.name->value_str);
-        }
-        else
-        {
-            printf("DEFINE VAR: CERTO, DECLARADA A VARIÁVEL: %s\n", node->define_var.name->value_str);
-        }
         ast_dfs_second(node->define_var.value, table);
         break;
-    }
 
     case AST_DEFINE_FUNC:
-        ast_dfs_second(node->func.params, table);
         ast_dfs_second(node->func.body, table);
         break;
 
@@ -941,6 +970,8 @@ void ast_dfs_second(ASTNode *node, SymbolTable *table)
         break;
 
     case AST_SET:
+        if (symtab_lookup_scope(s, node->set_expr.name->value_str) == NULL)
+            print_semantic_error("variavel nao declarada", node->set_expr.name);
         ast_dfs_second(node->set_expr.value, table);
         break;
 
@@ -950,7 +981,6 @@ void ast_dfs_second(ASTNode *node, SymbolTable *table)
         break;
 
     case AST_QUOTE:
-        ast_dfs_second(node->quote.datum, table);
         break;
 
     case AST_COND:
@@ -1036,14 +1066,11 @@ void ast_dfs_second(ASTNode *node, SymbolTable *table)
     }
 }
 
-/* ----- liberacao ----- */
-
 void ast_free(ASTNode *node)
 {
     if (node == NULL)
         return;
 
-    /* libera os filhos de acordo com a variante do no' */
     switch (node->type)
     {
     case AST_LIST:
@@ -1162,7 +1189,6 @@ void ast_free(ASTNode *node)
         break;
     }
 
-    /* libera a copia do escopo guardada na primeira passada */
     scope_free(node->scope);
     free(node);
 }

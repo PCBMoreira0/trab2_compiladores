@@ -1,5 +1,6 @@
-(define x 10)
-(define x 10)
-((lambda (y y)
-   (+ x y))
- 5)
+(define x 10)        ; 
+
+(define (f y a b c)
+  (define y 5) 
+  (define a 99); 
+  y)

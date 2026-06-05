@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "libs/symbol_tab.h"
 #include "libs/scheme_ast.h"
+#include "libs/translator.h"
 
 int yylex(void);
 void yyerror(const char *);
@@ -407,22 +408,22 @@ int main(int argc, char **argv) {
     printf("===============\n");
     ast_print(ast_root, 0);
 
-    printf("\n===== SYMBOL TABLE =====\n");
-    printf("===============\n");
+    printf("\n===== TABELA DE SIMBOLOS =====\n"); 
     SymbolTable *table = symtab_create();
     ast_dfs(ast_root, table);
 
-    ast_print_scopes(ast_root);
-
     printf("\n===== VERIFICAÇÃO =====\n");
     printf("===============\n");
-    ast_dfs_second(ast_root, table);
+    ast_dfs_second(ast_root, table); 
+
+    translate(ast_root, stdout, 0);
+
 
     if (yyin != stdin) {
         fclose(yyin);
     }
 
-    printf("fim\n");
+    printf("\nfim\n");
 
     return 0;
 }

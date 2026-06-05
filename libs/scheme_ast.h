@@ -2,224 +2,183 @@
 
 #include "symbol_tab.h"
 
-/*
- * AST da linguagem Scheme.
- *
- * Segue o mesmo modelo do ast.h/ast.c: um no' unico (ASTNode) com um campo
- * "type" que identifica a variante e uma union com os dados de cada variante.
- * Cada construcao da gramatica (scheme.y) tem um construtor ast_create_*.
- *
- * Como Scheme e' uma linguagem baseada em listas, varias producoes da
- * gramatica sao listas (corpo, operandos, ligacoes de let, clausulas de cond,
- * etc). Todas elas sao representadas pelo no' generico AST_LIST, que e' uma
- * lista ligada de (item, next) - exatamente como o AST_BLOCK do modelo base.
- */
-
 typedef enum
 {
-    /* lista ligada generica (program, body, operandos, bindings, ...) */
+
     AST_LIST,
 
-    /* definicoes */
-    AST_DEFINE_VAR,  /* (define var expr)                 */
-    AST_DEFINE_FUNC, /* (define (nome args ...) body)     */
+    AST_DEFINE_VAR,
+    AST_DEFINE_FUNC,
 
-    /* expressoes */
-    AST_LAMBDA,      /* (lambda formals body)             */
-    AST_IF,          /* (if teste entao senao)            */
-    AST_SET,         /* (set! var expr)                   */
-    AST_CALL,        /* (operador operandos ...)          */
-    AST_QUOTE,       /* 'datum  /  (quote datum)          */
+    AST_LAMBDA,
+    AST_IF,
+    AST_SET,
+    AST_CALL,
+    AST_QUOTE,
 
-    /* expressoes derivadas */
-    AST_COND,        /* (cond clausulas ...)              */
-    AST_COND_CLAUSE, /* (teste ...) / (teste => recipiente) */
-    AST_CASE,        /* (case chave clausulas ...)        */
-    AST_CASE_CLAUSE, /* ((dados ...) sequencia)           */
-    AST_AND,         /* (and testes ...)                  */
-    AST_OR,          /* (or testes ...)                   */
-    AST_LET,         /* (let ((v e) ...) body)            */
-    AST_LET_STAR,    /* (let* ((v e) ...) body)           */
-    AST_LETREC,      /* (letrec ((v e) ...) body)         */
-    AST_NAMED_LET,   /* (let nome ((v e) ...) body)       */
-    AST_BINDING,     /* (var expr)  -- ligacao de um let  */
-    AST_BEGIN,       /* (begin forms ...)                 */
-    AST_DO,          /* (do (specs) (teste result) cmds)  */
-    AST_ITER_SPEC,   /* (var init step) -- spec do do     */
-    AST_DELAY,       /* (delay expr)                      */
-    AST_VECTOR,      /* #(datum ...)                      */
+    AST_COND,
+    AST_COND_CLAUSE,
+    AST_CASE,
+    AST_CASE_CLAUSE,
+    AST_AND,
+    AST_OR,
+    AST_LET,
+    AST_LET_STAR,
+    AST_LETREC,
+    AST_NAMED_LET,
+    AST_BINDING,
+    AST_BEGIN,
+    AST_DO,
+    AST_ITER_SPEC,
+    AST_DELAY,
+    AST_VECTOR,
 
-    /* folhas */
-    AST_VARIABLE,    /* identificador                     */
-    AST_NUMBER,      /* literal numerico                  */
-    AST_BOOLEAN,     /* #t / #f                           */
-    AST_STRING,      /* "..."                             */
-    AST_CHARACTER    /* #\c                               */
+    AST_VARIABLE,
+    AST_NUMBER,
+    AST_BOOLEAN,
+    AST_STRING,
+    AST_CHARACTER
 } ASTNodeType;
 
 typedef struct ASTNode
 {
     ASTNodeType type;
+    int linha;
+    Scope *scope;
     union
     {
-        /* lista ligada generica: item atual + resto da lista */
+
         struct
         {
             struct ASTNode *item;
             struct ASTNode *next;
         } list;
 
-        /* (define var expr) */
         struct
         {
-            struct ASTNode *name; /* no' AST_VARIABLE */
+            struct ASTNode *name;
             struct ASTNode *value;
         } define_var;
 
-        /* (define (nome args ...) body) e (lambda formals body) */
         struct
         {
-            struct ASTNode *name;       /* AST_VARIABLE; NULL no caso de lambda */
-            struct ASTNode *params;     /* lista de AST_VARIABLE             */
-            struct ASTNode *rest_param; /* AST_VARIABLE variadico (. resto) ou NULL */
-            struct ASTNode *body;       /* lista de comandos/definicoes      */
+            struct ASTNode *name;
+            struct ASTNode *params;
+            struct ASTNode *rest_param;
+            struct ASTNode *body;
         } func;
 
-        /* (if teste entao senao) */
         struct
         {
             struct ASTNode *condition;
             struct ASTNode *then_branch;
-            struct ASTNode *else_branch; /* pode ser NULL */
+            struct ASTNode *else_branch;
         } if_expr;
 
-        /* (set! var valor) */
         struct
         {
-            struct ASTNode *name; /* no' AST_VARIABLE */
+            struct ASTNode *name;
             struct ASTNode *value;
         } set_expr;
 
-        /* (operador operandos ...) */
         struct
         {
-            struct ASTNode *operator_; /* expressao do operador  */
-            struct ASTNode *operands;  /* lista de operandos     */
+            struct ASTNode *operator_;
+            struct ASTNode *operands;
         } call;
 
-        /* 'datum  /  (quote datum) */
         struct
         {
             struct ASTNode *datum;
         } quote;
 
-        /* (cond clausulas ... [else]) */
         struct
         {
-            struct ASTNode *clauses;     /* lista de AST_COND_CLAUSE */
-            struct ASTNode *else_clause; /* sequencia do else ou NULL */
+            struct ASTNode *clauses;
+            struct ASTNode *else_clause;
         } cond;
 
-        /* clausula de cond: (teste body) / (teste) / (teste => recipiente) */
         struct
         {
             struct ASTNode *test;
-            struct ASTNode *body;      /* sequencia ou NULL              */
-            struct ASTNode *recipient; /* alvo do => ou NULL             */
+            struct ASTNode *body;
+            struct ASTNode *recipient;
         } cond_clause;
 
-        /* (case chave clausulas ... [else]) */
         struct
         {
             struct ASTNode *key;
-            struct ASTNode *clauses;     /* lista de AST_CASE_CLAUSE  */
-            struct ASTNode *else_clause; /* sequencia do else ou NULL */
+            struct ASTNode *clauses;
+            struct ASTNode *else_clause;
         } case_expr;
 
-        /* clausula de case: ((dados ...) sequencia) */
         struct
         {
-            struct ASTNode *data; /* lista de datums */
-            struct ASTNode *body; /* sequencia       */
+            struct ASTNode *data;
+            struct ASTNode *body;
         } case_clause;
 
-        /* (and testes ...) / (or testes ...) */
         struct
         {
-            struct ASTNode *tests; /* lista de testes */
+            struct ASTNode *tests;
         } logical;
 
-        /* let / let* / letrec / named let */
         struct
         {
-            struct ASTNode *name;     /* AST_VARIABLE do named let, senao NULL */
-            struct ASTNode *bindings; /* lista de AST_BINDING          */
-            struct ASTNode *body;     /* lista de comandos/definicoes  */
+            struct ASTNode *name;
+            struct ASTNode *bindings;
+            struct ASTNode *body;
         } let_expr;
 
-        /* ligacao de let: (var expr) */
         struct
         {
-            struct ASTNode *name; /* no' AST_VARIABLE */
+            struct ASTNode *name;
             struct ASTNode *value;
         } binding;
 
-        /* (do (specs) (teste result) comandos) */
         struct
         {
-            struct ASTNode *specs;    /* lista de AST_ITER_SPEC        */
-            struct ASTNode *test;     /* teste de parada               */
-            struct ASTNode *result;   /* sequencia de resultado        */
-            struct ASTNode *commands; /* lista de comandos do corpo    */
+            struct ASTNode *specs;
+            struct ASTNode *test;
+            struct ASTNode *result;
+            struct ASTNode *commands;
         } do_expr;
 
-        /* spec de iteracao do do: (var init step) */
         struct
         {
-            struct ASTNode *name; /* no' AST_VARIABLE */
+            struct ASTNode *name;
             struct ASTNode *init;
-            struct ASTNode *step; /* pode ser NULL */
+            struct ASTNode *step;
         } iter_spec;
 
-        /* (delay expr) */
         struct
         {
             struct ASTNode *expression;
         } delay;
 
-        /* #(datum ...) */
         struct
         {
-            struct ASTNode *elements; /* lista de datums */
+            struct ASTNode *elements;
         } vector;
 
-        /* folhas: variavel, numero, booleano, string, caractere */
         char *value_str;
     };
 
-    /* escopo visivel neste no', preenchido na primeira passada (ast_dfs).
-     * E' uma copia profunda do escopo corrente da tabela de simbolos, para
-     * que a segunda passada possa consultar os simbolos sem depender da
-     * tabela ainda estar montada. Liberado em ast_free. */
-    Scope *scope;
+    
 } ASTNode;
 
-/* ----- listas genericas ----- */
 ASTNode *ast_create_list(ASTNode *item, ASTNode *next);
 ASTNode *ast_list_append(ASTNode *list, ASTNode *item);
 
-/* ----- definicoes ----- */
 ASTNode *ast_create_define_var(ASTNode *name, ASTNode *value);
 ASTNode *ast_create_define_func(ASTNode *name, ASTNode *params, ASTNode *rest_param, ASTNode *body);
 
-/* ----- expressoes ----- */
 ASTNode *ast_create_lambda(ASTNode *params, ASTNode *rest_param, ASTNode *body);
 ASTNode *ast_create_if(ASTNode *condition, ASTNode *then_branch, ASTNode *else_branch);
 ASTNode *ast_create_set(ASTNode *name, ASTNode *value);
 ASTNode *ast_create_call(ASTNode *operator_, ASTNode *operands);
 ASTNode *ast_create_quote(ASTNode *datum);
 
-/* ----- expressoes derivadas ----- */
 ASTNode *ast_create_cond(ASTNode *clauses, ASTNode *else_clause);
 ASTNode *ast_create_cond_clause(ASTNode *test, ASTNode *body, ASTNode *recipient);
 ASTNode *ast_create_case(ASTNode *key, ASTNode *clauses, ASTNode *else_clause);
@@ -237,28 +196,21 @@ ASTNode *ast_create_iter_spec(ASTNode *name, ASTNode *init, ASTNode *step);
 ASTNode *ast_create_delay(ASTNode *expression);
 ASTNode *ast_create_vector(ASTNode *elements);
 
-/* ----- folhas ----- */
 ASTNode *ast_create_variable(char *name);
 ASTNode *ast_create_number(char *value);
 ASTNode *ast_create_boolean(char *value);
 ASTNode *ast_create_string(char *value);
 ASTNode *ast_create_character(char *value);
 
-/* ----- impressao ----- */
 void ast_print(ASTNode *node, int level);
 
-/* escreve no buffer o nome do tipo do no' (ex: "AST_LAMBDA") */
-void ast_type_to_string(ASTNode *node, char *buffer);
+void ast_type_to_string(ASTNodeType type, char *buffer);
 
-/* imprime o tipo do no' e a cadeia de escopos guardada nele (depuracao) */
 void ast_print_scope(ASTNode *node);
 
-/* percorre a arvore inteira imprimindo o escopo guardado em cada no' */
 void ast_print_scopes(ASTNode *node);
 
-/* ----- analise semantica ----- */
 void ast_dfs(ASTNode *node, SymbolTable *table);
 void ast_dfs_second(ASTNode *node, SymbolTable *table);
 
-/* ----- liberacao ----- */
 void ast_free(ASTNode *node);

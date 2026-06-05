@@ -6,6 +6,7 @@
 %}
 
 %option noyywrap
+%option yylineno
 
 LETTER [a-z]
 DIGIT  [0-9]
