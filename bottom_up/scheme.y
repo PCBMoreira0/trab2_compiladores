@@ -4,6 +4,7 @@
 #include "libs/symbol_tab.h"
 #include "libs/scheme_ast.h"
 #include "libs/translator.h"
+#include "libs/merge_file.h"
 
 int yylex(void);
 void yyerror(const char *);
@@ -416,8 +417,30 @@ int main(int argc, char **argv) {
     printf("===============\n");
     ast_dfs_second(ast_root, table); 
 
-    translate(ast_root, stdout, 0);
 
+    FILE *py = fopen("py_code.py", "w+");
+    if (!py) {
+        perror("Erro ao abrir o arquivo");
+        return 1;
+    }
+
+    FILE *py_defs = fopen("py_defs.py", "w+");
+    if (!py) {
+        perror("Erro ao abrir o arquivo");
+        return 1;
+    }
+    translate(ast_root, py, py_defs, 0);
+
+    fclose(py);
+    fclose(py_defs);
+    if (merge_files("py_defs.py", "py_code.py", "python.py")) {
+        printf("Arquivos mesclados com sucesso em 'python.py'!\n");
+    } else {
+        printf("Falha na mesclagem.\n");
+    }
+
+    /* remove("py_defs.py");
+    remove("py_code.py"); */
 
     if (yyin != stdin) {
         fclose(yyin);

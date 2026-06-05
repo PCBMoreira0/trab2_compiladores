@@ -1,7 +1,7 @@
-(if (> 5 3)
-    (begin
-      (display "Entrou no verdadeiro")
-      (+ 2 4))
-    (begin
-      (display "Entrou no falso")
-      (+ 1 1)))
+(let contagem ((n 3))
+  (if (= n 0)
+      "Fogo!"
+      (begin
+        (display n)
+        (newline)
+        (contagem (- n 1)))))

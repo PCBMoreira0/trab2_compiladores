@@ -1,3 +1,10 @@
-x = 2
+x = a()
 
-print('oi'), x = 1 if x > 4 else print('nao')
+def a():
+    print('oi')
+    return 1
+
+wsefgowujgwqg
+
+wgwgh
+x = 
