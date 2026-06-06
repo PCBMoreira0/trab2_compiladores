@@ -128,7 +128,7 @@ void translate_as_block(ASTNode *node, FILE *file,
         int first = 1;
         for (ASTNode *cl = node->cond.clauses; cl != NULL; cl = cl->list.next)
         {
-            ASTNode *clause = cl->list.item; // AST_COND_CLAUSE
+            ASTNode *clause = cl->list.item;
 
             translator_print_indent(file, identation);
             fprintf(file, first ? "if " : "elif ");
@@ -166,7 +166,7 @@ void translate_as_block(ASTNode *node, FILE *file,
         int first = 1;
         for (ASTNode *cl = node->case_expr.clauses; cl != NULL; cl = cl->list.next)
         {
-            ASTNode *clause = cl->list.item; // AST_CASE_CLAUSE
+            ASTNode *clause = cl->list.item;
 
             translator_print_indent(file, identation);
             fprintf(file, first ? "if " : "elif ");
@@ -335,7 +335,6 @@ void let(ASTNode *node, FILE *file, int identation)
 
 void let_star_bindings(ASTNode *binding_list, ASTNode *body, FILE *file, int identation)
 {
-    // Sem mais ligações: chegamos ao corpo do let*
     if (binding_list == NULL)
     {
         translate(body->list.item, file, identation);
@@ -344,7 +343,6 @@ void let_star_bindings(ASTNode *binding_list, ASTNode *body, FILE *file, int ide
 
     ASTNode *bind = binding_list->list.item;
 
-    // (lambda nome: <restante das ligações + corpo>)(valor)
     fprintf(file, "(lambda %s: ", sanitize_name(bind->binding.name->value_str));
     let_star_bindings(binding_list->list.next, body, file, identation);
     fprintf(file, ")(");
@@ -526,7 +524,7 @@ void variable(ASTNode *node, FILE *file, int identation)
 
 void translate_character(ASTNode *node, FILE *file)
 {
-    const char *s = node->value_str + 2;  // pula "#\"
+    const char *s = node->value_str + 2;
     if      (strcmp(s, "space")   == 0) fprintf(file, "' '");
     else if (strcmp(s, "newline") == 0) fprintf(file, "'\\n'");
     else if (strcmp(s, "tab")     == 0) fprintf(file, "'\\t'");
@@ -582,27 +580,23 @@ void translate_datum(ASTNode *node, FILE *file)
 
 void translate_do(ASTNode *node, FILE *file, int identation)
 {
-    // 1. inicializações
     for (ASTNode *s = node->do_expr.specs; s != NULL; s = s->list.next)
     {
-        ASTNode *spec = s->list.item; // AST_ITER_SPEC
+        ASTNode *spec = s->list.item;
         translator_print_indent(file, identation);
         fprintf(file, "%s = ", sanitize_name(spec->iter_spec.name->value_str));
         translate(spec->iter_spec.init, file, 0);
         fprintf(file, "\n");
     }
 
-    // 2. while not test:
     translator_print_indent(file, identation);
     fprintf(file, "while not (");
     translate(node->do_expr.test, file, 0);
     fprintf(file, "):\n");
 
-    // 3. corpo
     for (ASTNode *c = node->do_expr.commands; c != NULL; c = c->list.next)
         translate(c->list.item, file, identation + 1);
 
-    // 4. atualização simultânea (só vars que têm step)
     int step_count = 0;
     for (ASTNode *s = node->do_expr.specs; s != NULL; s = s->list.next)
         if (s->list.item->iter_spec.step != NULL)

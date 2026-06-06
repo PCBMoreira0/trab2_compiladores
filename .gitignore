@@ -4,3 +4,5 @@ lex.yy.c
 *.tab.h
 *.out
 *.output
+scheme.scm
+python.py
