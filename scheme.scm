@@ -1,7 +1,7 @@
-(let contagem ((n 3))
-  (if (= n 0)
-      "Fogo!"
+(let loop ((i 1))
+  (if (> i 5)
+      'fim
       (begin
-        (display n)
+        (display i)
         (newline)
-        (contagem (- n 1)))))
+        (loop (+ i 1)))))

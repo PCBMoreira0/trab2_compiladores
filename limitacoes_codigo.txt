@@ -1,0 +1,21 @@
+(define x
+  (if (> 5 3)
+      (begin (display "Escolhi 10\n") 10)
+      20))
+
+O \n causa um problema na análise lexica
+
+(define x
+  (if (> 5 3)
+    10))
+  
+Nesse caso o código não dá erro sintático, na tradução para python ele define x como None
+
+
+(define processar
+  (lambda (x)
+    (display x)
+    (newline)
+    (* x 2)))
+
+O lambda não permite mais de uma expressão em Python
