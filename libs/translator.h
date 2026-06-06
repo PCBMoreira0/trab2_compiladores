@@ -1,5 +1,8 @@
 #pragma once
-#include "ast.h"
+#include "scheme_ast.h"
 #include <stdio.h>
 
 void translate(ASTNode *node, FILE *file, int identation);
+
+const char **translator_get_errors(void);
+int translator_get_error_count(void);

@@ -1,0 +1,1194 @@
+#include "scheme_ast.h"
+#include "symbol_tab.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+extern int yylineno;
+
+static ASTNode *ast_new(ASTNodeType type)
+{
+    ASTNode *node = malloc(sizeof(ASTNode));
+    node->type = type;
+    node->linha = yylineno;
+    node->scope = NULL;
+    return node;
+}
+
+ASTNode *ast_create_list(ASTNode *item, ASTNode *next)
+{
+    ASTNode *node = ast_new(AST_LIST);
+    node->list.item = item;
+    node->list.next = next;
+    return node;
+}
+
+ASTNode *ast_list_append(ASTNode *list, ASTNode *item)
+{
+    ASTNode *novo = ast_create_list(item, NULL);
+
+    if (list == NULL)
+        return novo;
+
+    ASTNode *atual = list;
+    while (atual->list.next != NULL)
+        atual = atual->list.next;
+    atual->list.next = novo;
+
+    return list;
+}
+
+ASTNode *ast_create_define_var(ASTNode *name, ASTNode *value)
+{
+    ASTNode *node = ast_new(AST_DEFINE_VAR);
+    node->define_var.name = name;
+    node->define_var.value = value;
+    return node;
+}
+
+ASTNode *ast_create_define_func(ASTNode *name, ASTNode *params, ASTNode *rest_param, ASTNode *body)
+{
+    ASTNode *node = ast_new(AST_DEFINE_FUNC);
+    node->func.name = name;
+    node->func.params = params;
+    node->func.rest_param = rest_param;
+    node->func.body = body;
+    return node;
+}
+
+ASTNode *ast_create_lambda(ASTNode *params, ASTNode *rest_param, ASTNode *body)
+{
+    ASTNode *node = ast_new(AST_LAMBDA);
+    node->func.name = NULL;
+    node->func.params = params;
+    node->func.rest_param = rest_param;
+    node->func.body = body;
+    return node;
+}
+
+ASTNode *ast_create_if(ASTNode *condition, ASTNode *then_branch, ASTNode *else_branch)
+{
+    ASTNode *node = ast_new(AST_IF);
+    node->if_expr.condition = condition;
+    node->if_expr.then_branch = then_branch;
+    node->if_expr.else_branch = else_branch;
+    return node;
+}
+
+ASTNode *ast_create_set(ASTNode *name, ASTNode *value)
+{
+    ASTNode *node = ast_new(AST_SET);
+    node->set_expr.name = name;
+    node->set_expr.value = value;
+    return node;
+}
+
+ASTNode *ast_create_call(ASTNode *operator_, ASTNode *operands)
+{
+    ASTNode *node = ast_new(AST_CALL);
+    node->call.operator_ = operator_;
+    node->call.operands = operands;
+    return node;
+}
+
+ASTNode *ast_create_quote(ASTNode *datum)
+{
+    ASTNode *node = ast_new(AST_QUOTE);
+    node->quote.datum = datum;
+    return node;
+}
+
+ASTNode *ast_create_cond(ASTNode *clauses, ASTNode *else_clause)
+{
+    ASTNode *node = ast_new(AST_COND);
+    node->cond.clauses = clauses;
+    node->cond.else_clause = else_clause;
+    return node;
+}
+
+ASTNode *ast_create_cond_clause(ASTNode *test, ASTNode *body, ASTNode *recipient)
+{
+    ASTNode *node = ast_new(AST_COND_CLAUSE);
+    node->cond_clause.test = test;
+    node->cond_clause.body = body;
+    node->cond_clause.recipient = recipient;
+    return node;
+}
+
+ASTNode *ast_create_case(ASTNode *key, ASTNode *clauses, ASTNode *else_clause)
+{
+    ASTNode *node = ast_new(AST_CASE);
+    node->case_expr.key = key;
+    node->case_expr.clauses = clauses;
+    node->case_expr.else_clause = else_clause;
+    return node;
+}
+
+ASTNode *ast_create_case_clause(ASTNode *data, ASTNode *body)
+{
+    ASTNode *node = ast_new(AST_CASE_CLAUSE);
+    node->case_clause.data = data;
+    node->case_clause.body = body;
+    return node;
+}
+
+ASTNode *ast_create_and(ASTNode *tests)
+{
+    ASTNode *node = ast_new(AST_AND);
+    node->logical.tests = tests;
+    return node;
+}
+
+ASTNode *ast_create_or(ASTNode *tests)
+{
+    ASTNode *node = ast_new(AST_OR);
+    node->logical.tests = tests;
+    return node;
+}
+
+static ASTNode *ast_make_let(ASTNodeType type, ASTNode *name, ASTNode *bindings, ASTNode *body)
+{
+    ASTNode *node = ast_new(type);
+    node->let_expr.name = name;
+    node->let_expr.bindings = bindings;
+    node->let_expr.body = body;
+    return node;
+}
+
+ASTNode *ast_create_let(ASTNode *bindings, ASTNode *body)
+{
+    return ast_make_let(AST_LET, NULL, bindings, body);
+}
+
+ASTNode *ast_create_let_star(ASTNode *bindings, ASTNode *body)
+{
+    return ast_make_let(AST_LET_STAR, NULL, bindings, body);
+}
+
+ASTNode *ast_create_letrec(ASTNode *bindings, ASTNode *body)
+{
+    return ast_make_let(AST_LETREC, NULL, bindings, body);
+}
+
+ASTNode *ast_create_named_let(ASTNode *name, ASTNode *bindings, ASTNode *body)
+{
+    return ast_make_let(AST_NAMED_LET, name, bindings, body);
+}
+
+ASTNode *ast_create_binding(ASTNode *name, ASTNode *value)
+{
+    ASTNode *node = ast_new(AST_BINDING);
+    node->binding.name = name;
+    node->binding.value = value;
+    return node;
+}
+
+ASTNode *ast_create_begin(ASTNode *forms)
+{
+    ASTNode *node = ast_new(AST_BEGIN);
+    node->list.item = forms;
+    node->list.next = NULL;
+    return node;
+}
+
+ASTNode *ast_create_do(ASTNode *specs, ASTNode *test, ASTNode *result, ASTNode *commands)
+{
+    ASTNode *node = ast_new(AST_DO);
+    node->do_expr.specs = specs;
+    node->do_expr.test = test;
+    node->do_expr.result = result;
+    node->do_expr.commands = commands;
+    return node;
+}
+
+ASTNode *ast_create_iter_spec(ASTNode *name, ASTNode *init, ASTNode *step)
+{
+    ASTNode *node = ast_new(AST_ITER_SPEC);
+    node->iter_spec.name = name;
+    node->iter_spec.init = init;
+    node->iter_spec.step = step;
+    return node;
+}
+
+ASTNode *ast_create_delay(ASTNode *expression)
+{
+    ASTNode *node = ast_new(AST_DELAY);
+    node->delay.expression = expression;
+    return node;
+}
+
+ASTNode *ast_create_vector(ASTNode *elements)
+{
+    ASTNode *node = ast_new(AST_VECTOR);
+    node->vector.elements = elements;
+    return node;
+}
+
+ASTNode *ast_create_variable(char *name)
+{
+    ASTNode *node = ast_new(AST_VARIABLE);
+    node->value_str = name;
+    return node;
+}
+
+ASTNode *ast_create_number(char *value)
+{
+    ASTNode *node = ast_new(AST_NUMBER);
+    node->value_str = value;
+    return node;
+}
+
+ASTNode *ast_create_boolean(char *value)
+{
+    ASTNode *node = ast_new(AST_BOOLEAN);
+    node->value_str = value;
+    return node;
+}
+
+ASTNode *ast_create_string(char *value)
+{
+    ASTNode *node = ast_new(AST_STRING);
+    node->value_str = value;
+    return node;
+}
+
+ASTNode *ast_create_character(char *value)
+{
+    ASTNode *node = ast_new(AST_CHARACTER);
+    node->value_str = value;
+    return node;
+}
+
+static void ast_print_indent(int level)
+{
+    for (int i = 0; i < level; i++)
+        printf("  | ");
+}
+
+static void ast_print_field(const char *label, ASTNode *node, int level)
+{
+    ast_print_indent(level);
+    printf("%s\n", label);
+    ast_print(node, level + 1);
+}
+
+void ast_print(ASTNode *node, int level)
+{
+    if (node == NULL)
+        return;
+
+    ast_print_indent(level);
+
+    switch (node->type)
+    {
+    case AST_LIST:
+
+        printf("Item da lista:\n");
+        ast_print(node->list.item, level + 1);
+        ast_print(node->list.next, level);
+        break;
+
+    case AST_DEFINE_VAR:
+        printf("Definicao de variavel: %s\n", node->define_var.name->value_str);
+        ast_print(node->define_var.value, level + 1);
+        break;
+
+    case AST_DEFINE_FUNC:
+        printf("Definicao de funcao: %s\n", node->func.name->value_str);
+        ast_print_field("Parametros:", node->func.params, level + 1);
+        if (node->func.rest_param != NULL)
+        {
+            ast_print_indent(level + 1);
+            printf("Parametro variadico: %s\n", node->func.rest_param->value_str);
+        }
+        ast_print_field("Corpo:", node->func.body, level + 1);
+        break;
+
+    case AST_LAMBDA:
+        printf("Lambda\n");
+        ast_print_field("Parametros:", node->func.params, level + 1);
+        if (node->func.rest_param != NULL)
+        {
+            ast_print_indent(level + 1);
+            printf("Parametro variadico: %s\n", node->func.rest_param->value_str);
+        }
+        ast_print_field("Corpo:", node->func.body, level + 1);
+        break;
+
+    case AST_IF:
+        printf("Comando SE (If)\n");
+        ast_print_field("Condicao:", node->if_expr.condition, level + 1);
+        ast_print_field("Entao:", node->if_expr.then_branch, level + 1);
+        if (node->if_expr.else_branch != NULL)
+            ast_print_field("Senao:", node->if_expr.else_branch, level + 1);
+        break;
+
+    case AST_SET:
+        printf("Atribuicao (set!): %s\n", node->set_expr.name->value_str);
+        ast_print(node->set_expr.value, level + 1);
+        break;
+
+    case AST_CALL:
+        printf("Chamada de procedimento\n");
+        ast_print_field("Operador:", node->call.operator_, level + 1);
+        ast_print_field("Operandos:", node->call.operands, level + 1);
+        break;
+
+    case AST_QUOTE:
+        printf("Quote\n");
+        ast_print(node->quote.datum, level + 1);
+        break;
+
+    case AST_COND:
+        printf("Cond\n");
+        ast_print(node->cond.clauses, level + 1);
+        if (node->cond.else_clause != NULL)
+            ast_print_field("Else:", node->cond.else_clause, level + 1);
+        break;
+
+    case AST_COND_CLAUSE:
+        printf("Clausula de cond\n");
+        ast_print_field("Teste:", node->cond_clause.test, level + 1);
+        if (node->cond_clause.recipient != NULL)
+            ast_print_field("Recipiente (=>):", node->cond_clause.recipient, level + 1);
+        if (node->cond_clause.body != NULL)
+            ast_print_field("Corpo:", node->cond_clause.body, level + 1);
+        break;
+
+    case AST_CASE:
+        printf("Case\n");
+        ast_print_field("Chave:", node->case_expr.key, level + 1);
+        ast_print(node->case_expr.clauses, level + 1);
+        if (node->case_expr.else_clause != NULL)
+            ast_print_field("Else:", node->case_expr.else_clause, level + 1);
+        break;
+
+    case AST_CASE_CLAUSE:
+        printf("Clausula de case\n");
+        ast_print_field("Dados:", node->case_clause.data, level + 1);
+        ast_print_field("Corpo:", node->case_clause.body, level + 1);
+        break;
+
+    case AST_AND:
+        printf("And\n");
+        ast_print(node->logical.tests, level + 1);
+        break;
+
+    case AST_OR:
+        printf("Or\n");
+        ast_print(node->logical.tests, level + 1);
+        break;
+
+    case AST_LET:
+        printf("Let\n");
+        ast_print_field("Ligacoes:", node->let_expr.bindings, level + 1);
+        ast_print_field("Corpo:", node->let_expr.body, level + 1);
+        break;
+
+    case AST_LET_STAR:
+        printf("Let*\n");
+        ast_print_field("Ligacoes:", node->let_expr.bindings, level + 1);
+        ast_print_field("Corpo:", node->let_expr.body, level + 1);
+        break;
+
+    case AST_LETREC:
+        printf("Letrec\n");
+        ast_print_field("Ligacoes:", node->let_expr.bindings, level + 1);
+        ast_print_field("Corpo:", node->let_expr.body, level + 1);
+        break;
+
+    case AST_NAMED_LET:
+        printf("Named let: %s\n", node->let_expr.name->value_str);
+        ast_print_field("Ligacoes:", node->let_expr.bindings, level + 1);
+        ast_print_field("Corpo:", node->let_expr.body, level + 1);
+        break;
+
+    case AST_BINDING:
+        printf("Ligacao: %s\n", node->binding.name->value_str);
+        ast_print(node->binding.value, level + 1);
+        break;
+
+    case AST_BEGIN:
+        printf("Begin\n");
+        ast_print(node->list.item, level + 1);
+        break;
+
+    case AST_DO:
+        printf("Do\n");
+        ast_print_field("Specs:", node->do_expr.specs, level + 1);
+        ast_print_field("Teste:", node->do_expr.test, level + 1);
+        ast_print_field("Resultado:", node->do_expr.result, level + 1);
+        ast_print_field("Comandos:", node->do_expr.commands, level + 1);
+        break;
+
+    case AST_ITER_SPEC:
+        printf("Spec de iteracao: %s\n", node->iter_spec.name->value_str);
+        ast_print_field("Init:", node->iter_spec.init, level + 1);
+        if (node->iter_spec.step != NULL)
+            ast_print_field("Step:", node->iter_spec.step, level + 1);
+        break;
+
+    case AST_DELAY:
+        printf("Delay\n");
+        ast_print(node->delay.expression, level + 1);
+        break;
+
+    case AST_VECTOR:
+        printf("Vetor\n");
+        ast_print(node->vector.elements, level + 1);
+        break;
+
+    case AST_VARIABLE:
+        printf("Variavel: %s\n", node->value_str);
+        break;
+
+    case AST_NUMBER:
+        printf("Numero: %s\n", node->value_str);
+        break;
+
+    case AST_BOOLEAN:
+        printf("Booleano: %s\n", node->value_str);
+        break;
+
+    case AST_STRING:
+        printf("String: %s\n", node->value_str);
+        break;
+
+    case AST_CHARACTER:
+        printf("Caractere: %s\n", node->value_str);
+        break;
+
+    default:
+        printf("No desconhecido!\n");
+        break;
+    }
+}
+
+void ast_type_to_string(ASTNodeType type, char *buffer)
+{
+    switch (type)
+    {
+    case AST_LIST:
+        strcpy(buffer, "AST_LIST");
+        break;
+    case AST_DEFINE_VAR:
+        strcpy(buffer, "AST_DEFINE_VAR");
+        break;
+    case AST_DEFINE_FUNC:
+        strcpy(buffer, "AST_DEFINE_FUNC");
+        break;
+    case AST_LAMBDA:
+        strcpy(buffer, "AST_LAMBDA");
+        break;
+    case AST_IF:
+        strcpy(buffer, "AST_IF");
+        break;
+    case AST_SET:
+        strcpy(buffer, "AST_SET");
+        break;
+    case AST_CALL:
+        strcpy(buffer, "AST_CALL");
+        break;
+    case AST_QUOTE:
+        strcpy(buffer, "AST_QUOTE");
+        break;
+    case AST_COND:
+        strcpy(buffer, "AST_COND");
+        break;
+    case AST_COND_CLAUSE:
+        strcpy(buffer, "AST_COND_CLAUSE");
+        break;
+    case AST_CASE:
+        strcpy(buffer, "AST_CASE");
+        break;
+    case AST_CASE_CLAUSE:
+        strcpy(buffer, "AST_CASE_CLAUSE");
+        break;
+    case AST_AND:
+        strcpy(buffer, "AST_AND");
+        break;
+    case AST_OR:
+        strcpy(buffer, "AST_OR");
+        break;
+    case AST_LET:
+        strcpy(buffer, "AST_LET");
+        break;
+    case AST_LET_STAR:
+        strcpy(buffer, "AST_LET_STAR");
+        break;
+    case AST_LETREC:
+        strcpy(buffer, "AST_LETREC");
+        break;
+    case AST_NAMED_LET:
+        strcpy(buffer, "AST_NAMED_LET");
+        break;
+    case AST_BINDING:
+        strcpy(buffer, "AST_BINDING");
+        break;
+    case AST_BEGIN:
+        strcpy(buffer, "AST_BEGIN");
+        break;
+    case AST_DO:
+        strcpy(buffer, "AST_DO");
+        break;
+    case AST_ITER_SPEC:
+        strcpy(buffer, "AST_ITER_SPEC");
+        break;
+    case AST_DELAY:
+        strcpy(buffer, "AST_DELAY");
+        break;
+    case AST_VECTOR:
+        strcpy(buffer, "AST_VECTOR");
+        break;
+    case AST_VARIABLE:
+        strcpy(buffer, "AST_VARIABLE");
+        break;
+    case AST_NUMBER:
+        strcpy(buffer, "AST_NUMBER");
+        break;
+    case AST_BOOLEAN:
+        strcpy(buffer, "AST_BOOLEAN");
+        break;
+    case AST_STRING:
+        strcpy(buffer, "AST_STRING");
+        break;
+    case AST_CHARACTER:
+        strcpy(buffer, "AST_CHARACTER");
+        break;
+    default:
+        strcpy(buffer, "DESCONHECIDO");
+        break;
+    }
+}
+void ast_print_scope(ASTNode *node)
+{
+    if (node == NULL)
+        return;
+
+    char tipo[32];
+    ast_type_to_string(node->type, tipo);
+    printf("=== %s ===\n", tipo);
+
+    int depth = 0;
+    for (Scope *sc = node->scope; sc; sc = sc->parent)
+        depth++;
+
+    Scope **scopes = malloc(depth * sizeof(Scope *));
+    int idx = depth - 1;
+    for (Scope *sc = node->scope; sc; sc = sc->parent)
+        scopes[idx--] = sc;
+
+    for (int level = 0; level < depth; level++)
+    {
+        Scope *sc = scopes[level];
+        int indent = level * 4;
+        printf("%*s-- Escopo %d%s --\n", indent, "", level, level == 0 ? " (global)" : "");
+        for (Symbol *s = sc->symbols; s; s = s->next)
+        {
+            if (s->is_primitive)
+                continue;
+            printf("%*s%s\n", indent + 3, "", s->name);
+        }
+    }
+    free(scopes);
+}
+
+void ast_print_scopes(ASTNode *node)
+{
+    if (node == NULL)
+        return;
+
+    ast_print_scope(node);
+
+    switch (node->type)
+    {
+    case AST_LIST:
+        ast_print_scopes(node->list.item);
+        ast_print_scopes(node->list.next);
+        break;
+
+    case AST_DEFINE_VAR:
+        ast_print_scopes(node->define_var.name);
+        ast_print_scopes(node->define_var.value);
+        break;
+
+    case AST_DEFINE_FUNC:
+    case AST_LAMBDA:
+        ast_print_scopes(node->func.name);
+        ast_print_scopes(node->func.params);
+        ast_print_scopes(node->func.rest_param);
+        ast_print_scopes(node->func.body);
+        break;
+
+    case AST_IF:
+        ast_print_scopes(node->if_expr.condition);
+        ast_print_scopes(node->if_expr.then_branch);
+        ast_print_scopes(node->if_expr.else_branch);
+        break;
+
+    case AST_SET:
+        ast_print_scopes(node->set_expr.name);
+        ast_print_scopes(node->set_expr.value);
+        break;
+
+    case AST_CALL:
+        ast_print_scopes(node->call.operator_);
+        ast_print_scopes(node->call.operands);
+        break;
+
+    case AST_QUOTE:
+        ast_print_scopes(node->quote.datum);
+        break;
+
+    case AST_COND:
+        ast_print_scopes(node->cond.clauses);
+        ast_print_scopes(node->cond.else_clause);
+        break;
+
+    case AST_COND_CLAUSE:
+        ast_print_scopes(node->cond_clause.test);
+        ast_print_scopes(node->cond_clause.body);
+        ast_print_scopes(node->cond_clause.recipient);
+        break;
+
+    case AST_CASE:
+        ast_print_scopes(node->case_expr.key);
+        ast_print_scopes(node->case_expr.clauses);
+        ast_print_scopes(node->case_expr.else_clause);
+        break;
+
+    case AST_CASE_CLAUSE:
+        ast_print_scopes(node->case_clause.data);
+        ast_print_scopes(node->case_clause.body);
+        break;
+
+    case AST_AND:
+    case AST_OR:
+        ast_print_scopes(node->logical.tests);
+        break;
+
+    case AST_LET:
+    case AST_LET_STAR:
+    case AST_LETREC:
+    case AST_NAMED_LET:
+        ast_print_scopes(node->let_expr.name);
+        ast_print_scopes(node->let_expr.bindings);
+        ast_print_scopes(node->let_expr.body);
+        break;
+
+    case AST_BINDING:
+        ast_print_scopes(node->binding.name);
+        ast_print_scopes(node->binding.value);
+        break;
+
+    case AST_BEGIN:
+        ast_print_scopes(node->list.item);
+        break;
+
+    case AST_DO:
+        ast_print_scopes(node->do_expr.specs);
+        ast_print_scopes(node->do_expr.test);
+        ast_print_scopes(node->do_expr.result);
+        ast_print_scopes(node->do_expr.commands);
+        break;
+
+    case AST_ITER_SPEC:
+        ast_print_scopes(node->iter_spec.name);
+        ast_print_scopes(node->iter_spec.init);
+        ast_print_scopes(node->iter_spec.step);
+        break;
+
+    case AST_DELAY:
+        ast_print_scopes(node->delay.expression);
+        break;
+
+    case AST_VECTOR:
+        ast_print_scopes(node->vector.elements);
+        break;
+
+    default:
+
+        break;
+    }
+}
+
+static void print_semantic_error(const char *msg, ASTNode *node)
+{
+    const char *nome = node->value_str;
+    if (nome == NULL)
+    {
+        static char tipo[32];
+        ast_type_to_string(node->type, tipo);
+        nome = tipo;
+    }
+    printf("Erro semantico (linha %d, %s): %s\n", node->linha, nome, msg);
+}
+
+void ast_dfs(ASTNode *node, SymbolTable *table)
+{
+    if (node == NULL)
+        return;
+
+    switch (node->type)
+    {
+    case AST_LIST:
+        ast_dfs(node->list.item, table);
+        ast_dfs(node->list.next, table);
+        break;
+
+    case AST_VARIABLE:
+
+        break;
+
+    case AST_DEFINE_VAR:
+        if (symtab_insert(table, node->define_var.name->value_str) == NULL)
+        {
+            print_semantic_error("identificador duplicado", node->define_var.name);
+        }
+        ast_dfs(node->define_var.value, table);
+
+        break;
+
+    case AST_LAMBDA:
+    case AST_DEFINE_FUNC:
+        if (node->func.name != NULL)
+        {
+            if (symtab_insert(table, node->func.name->value_str) == NULL)
+                print_semantic_error("identificador duplicado", node->func.name);
+        }
+        symtab_enter_scope(table);
+        for (ASTNode *p = node->func.params; p != NULL; p = p->list.next)
+        {
+            ASTNode *var = p->list.item;
+            if (symtab_insert(table, var->value_str) == NULL)
+            {
+                print_semantic_error("parametro duplicado", var);
+            }
+        }
+        if (node->func.rest_param != NULL)
+        {
+            if (symtab_insert(table, node->func.rest_param->value_str) == NULL)
+                print_semantic_error("parametro duplicado", node->func.rest_param);
+        }
+
+        ast_dfs(node->func.body, table);
+
+        symtab_exit_scope(table);
+        break;
+
+    case AST_IF:
+        ast_dfs(node->if_expr.condition, table);
+        ast_dfs(node->if_expr.then_branch, table);
+        ast_dfs(node->if_expr.else_branch, table);
+        break;
+
+    case AST_SET:
+        ast_dfs(node->set_expr.value, table);
+        break;
+
+    case AST_CALL:
+        ast_dfs(node->call.operator_, table);
+        ast_dfs(node->call.operands, table);
+        break;
+
+    case AST_QUOTE:
+        ast_dfs(node->quote.datum, table);
+        break;
+
+    case AST_COND:
+        ast_dfs(node->cond.clauses, table);
+        ast_dfs(node->cond.else_clause, table);
+        break;
+
+    case AST_COND_CLAUSE:
+        ast_dfs(node->cond_clause.test, table);
+        ast_dfs(node->cond_clause.recipient, table);
+        ast_dfs(node->cond_clause.body, table);
+        break;
+
+    case AST_CASE:
+        ast_dfs(node->case_expr.key, table);
+        ast_dfs(node->case_expr.clauses, table);
+        ast_dfs(node->case_expr.else_clause, table);
+        break;
+
+    case AST_CASE_CLAUSE:
+        ast_dfs(node->case_clause.data, table);
+        ast_dfs(node->case_clause.body, table);
+        break;
+
+    case AST_AND:
+        ast_dfs(node->logical.tests, table);
+        break;
+
+    case AST_OR:
+        ast_dfs(node->logical.tests, table);
+        break;
+
+    case AST_LET:
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+            ast_dfs(b->list.item->binding.value, table);
+        symtab_enter_scope(table);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+        {
+            ASTNode *name = b->list.item->binding.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
+        ast_dfs(node->let_expr.body, table);
+        symtab_exit_scope(table);
+        break;
+
+    case AST_LET_STAR:
+        symtab_enter_scope(table);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+        {
+            ast_dfs(b->list.item->binding.value, table);
+            ASTNode *name = b->list.item->binding.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
+        ast_dfs(node->let_expr.body, table);
+        symtab_exit_scope(table);
+        break;
+
+    case AST_LETREC:
+        symtab_enter_scope(table);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+        {
+            ASTNode *name = b->list.item->binding.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+            ast_dfs(b->list.item->binding.value, table);
+        ast_dfs(node->let_expr.body, table);
+        symtab_exit_scope(table);
+        break;
+
+    case AST_NAMED_LET:
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+            ast_dfs(b->list.item->binding.value, table);
+
+        symtab_enter_scope(table);
+        if (node->let_expr.name != NULL)
+            symtab_insert(table, node->let_expr.name->value_str);
+        for (ASTNode *b = node->let_expr.bindings; b != NULL; b = b->list.next)
+        {
+            ASTNode *name = b->list.item->binding.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
+        ast_dfs(node->let_expr.body, table);
+        symtab_exit_scope(table);
+        break;
+
+    case AST_BINDING:
+        ast_dfs(node->binding.value, table);
+        break;
+
+    case AST_BEGIN:
+        ast_dfs(node->list.item, table);
+        break;
+
+    case AST_DO:
+        for (ASTNode *s = node->do_expr.specs; s != NULL; s = s->list.next)
+            ast_dfs(s->list.item->iter_spec.init, table);
+        symtab_enter_scope(table);
+        for (ASTNode *s = node->do_expr.specs; s != NULL; s = s->list.next)
+        {
+            ASTNode *name = s->list.item->iter_spec.name;
+            if (symtab_insert(table, name->value_str) == NULL)
+                print_semantic_error("variavel duplicada", name);
+        }
+        for (ASTNode *s = node->do_expr.specs; s != NULL; s = s->list.next)
+            ast_dfs(s->list.item->iter_spec.step, table);
+        ast_dfs(node->do_expr.test, table);
+        ast_dfs(node->do_expr.result, table);
+        ast_dfs(node->do_expr.commands, table);
+        symtab_exit_scope(table);
+        break;
+
+    case AST_ITER_SPEC:
+        ast_dfs(node->iter_spec.init, table);
+        ast_dfs(node->iter_spec.step, table);
+        break;
+
+    case AST_DELAY:
+        ast_dfs(node->delay.expression, table);
+        break;
+
+    case AST_VECTOR:
+        ast_dfs(node->vector.elements, table);
+        break;
+
+    default:
+        break;
+    }
+
+    node->scope = table->current;
+}
+
+void ast_dfs_second(ASTNode *node, SymbolTable *table)
+{
+    if (node == NULL)
+        return;
+
+    Scope *s = node->scope;
+    switch (node->type)
+    {
+    case AST_LIST:
+        ast_dfs_second(node->list.item, table);
+        ast_dfs_second(node->list.next, table);
+        break;
+
+    case AST_VARIABLE:
+        if (symtab_lookup_scope(s, node->value_str) == NULL)
+        {
+            print_semantic_error("variavel nao declarada", node);
+        }
+        break;
+
+    case AST_DEFINE_VAR:
+        ast_dfs_second(node->define_var.value, table);
+        break;
+
+    case AST_DEFINE_FUNC:
+        ast_dfs_second(node->func.body, table);
+        break;
+
+    case AST_LAMBDA:
+    {
+        ast_dfs_second(node->func.body, table);
+        break;
+    }
+
+    case AST_IF:
+        ast_dfs_second(node->if_expr.condition, table);
+        ast_dfs_second(node->if_expr.then_branch, table);
+        ast_dfs_second(node->if_expr.else_branch, table);
+        break;
+
+    case AST_SET:
+        if (symtab_lookup_scope(s, node->set_expr.name->value_str) == NULL)
+            print_semantic_error("variavel nao declarada", node->set_expr.name);
+        ast_dfs_second(node->set_expr.value, table);
+        break;
+
+    case AST_CALL:
+        ast_dfs_second(node->call.operator_, table);
+        ast_dfs_second(node->call.operands, table);
+        break;
+
+    case AST_QUOTE:
+        break;
+
+    case AST_COND:
+        ast_dfs_second(node->cond.clauses, table);
+        ast_dfs_second(node->cond.else_clause, table);
+        break;
+
+    case AST_COND_CLAUSE:
+        ast_dfs_second(node->cond_clause.test, table);
+        ast_dfs_second(node->cond_clause.recipient, table);
+        ast_dfs_second(node->cond_clause.body, table);
+        break;
+
+    case AST_CASE:
+        ast_dfs_second(node->case_expr.key, table);
+        ast_dfs_second(node->case_expr.clauses, table);
+        ast_dfs_second(node->case_expr.else_clause, table);
+        break;
+
+    case AST_CASE_CLAUSE:
+        ast_dfs_second(node->case_clause.data, table);
+        ast_dfs_second(node->case_clause.body, table);
+        break;
+
+    case AST_AND:
+        ast_dfs_second(node->logical.tests, table);
+        break;
+
+    case AST_OR:
+        ast_dfs_second(node->logical.tests, table);
+        break;
+
+    case AST_LET:
+        ast_dfs_second(node->let_expr.bindings, table);
+        ast_dfs_second(node->let_expr.body, table);
+        break;
+
+    case AST_LET_STAR:
+        ast_dfs_second(node->let_expr.bindings, table);
+        ast_dfs_second(node->let_expr.body, table);
+        break;
+
+    case AST_LETREC:
+        ast_dfs_second(node->let_expr.bindings, table);
+        ast_dfs_second(node->let_expr.body, table);
+        break;
+
+    case AST_NAMED_LET:
+        ast_dfs_second(node->let_expr.bindings, table);
+        ast_dfs_second(node->let_expr.body, table);
+        break;
+
+    case AST_BINDING:
+        ast_dfs_second(node->binding.value, table);
+        break;
+
+    case AST_BEGIN:
+        ast_dfs_second(node->list.item, table);
+        break;
+
+    case AST_DO:
+        ast_dfs_second(node->do_expr.specs, table);
+        ast_dfs_second(node->do_expr.test, table);
+        ast_dfs_second(node->do_expr.result, table);
+        ast_dfs_second(node->do_expr.commands, table);
+        break;
+
+    case AST_ITER_SPEC:
+        ast_dfs_second(node->iter_spec.init, table);
+        ast_dfs_second(node->iter_spec.step, table);
+        break;
+
+    case AST_DELAY:
+        ast_dfs_second(node->delay.expression, table);
+        break;
+
+    case AST_VECTOR:
+        ast_dfs_second(node->vector.elements, table);
+        break;
+
+    default:
+        break;
+    }
+}
+
+void ast_free(ASTNode *node)
+{
+    if (node == NULL)
+        return;
+
+    switch (node->type)
+    {
+    case AST_LIST:
+        ast_free(node->list.item);
+        ast_free(node->list.next);
+        break;
+
+    case AST_DEFINE_VAR:
+        ast_free(node->define_var.name);
+        ast_free(node->define_var.value);
+        break;
+
+    case AST_DEFINE_FUNC:
+    case AST_LAMBDA:
+        ast_free(node->func.name);
+        ast_free(node->func.params);
+        ast_free(node->func.rest_param);
+        ast_free(node->func.body);
+        break;
+
+    case AST_IF:
+        ast_free(node->if_expr.condition);
+        ast_free(node->if_expr.then_branch);
+        ast_free(node->if_expr.else_branch);
+        break;
+
+    case AST_SET:
+        ast_free(node->set_expr.name);
+        ast_free(node->set_expr.value);
+        break;
+
+    case AST_CALL:
+        ast_free(node->call.operator_);
+        ast_free(node->call.operands);
+        break;
+
+    case AST_QUOTE:
+        ast_free(node->quote.datum);
+        break;
+
+    case AST_COND:
+        ast_free(node->cond.clauses);
+        ast_free(node->cond.else_clause);
+        break;
+
+    case AST_COND_CLAUSE:
+        ast_free(node->cond_clause.test);
+        ast_free(node->cond_clause.body);
+        ast_free(node->cond_clause.recipient);
+        break;
+
+    case AST_CASE:
+        ast_free(node->case_expr.key);
+        ast_free(node->case_expr.clauses);
+        ast_free(node->case_expr.else_clause);
+        break;
+
+    case AST_CASE_CLAUSE:
+        ast_free(node->case_clause.data);
+        ast_free(node->case_clause.body);
+        break;
+
+    case AST_AND:
+    case AST_OR:
+        ast_free(node->logical.tests);
+        break;
+
+    case AST_LET:
+    case AST_LET_STAR:
+    case AST_LETREC:
+    case AST_NAMED_LET:
+        ast_free(node->let_expr.name);
+        ast_free(node->let_expr.bindings);
+        ast_free(node->let_expr.body);
+        break;
+
+    case AST_BINDING:
+        ast_free(node->binding.name);
+        ast_free(node->binding.value);
+        break;
+
+    case AST_BEGIN:
+        ast_free(node->list.item);
+        break;
+
+    case AST_DO:
+        ast_free(node->do_expr.specs);
+        ast_free(node->do_expr.test);
+        ast_free(node->do_expr.result);
+        ast_free(node->do_expr.commands);
+        break;
+
+    case AST_ITER_SPEC:
+        ast_free(node->iter_spec.name);
+        ast_free(node->iter_spec.init);
+        ast_free(node->iter_spec.step);
+        break;
+
+    case AST_DELAY:
+        ast_free(node->delay.expression);
+        break;
+
+    case AST_VECTOR:
+        ast_free(node->vector.elements);
+        break;
+
+    case AST_VARIABLE:
+    case AST_NUMBER:
+    case AST_BOOLEAN:
+    case AST_STRING:
+    case AST_CHARACTER:
+        free(node->value_str);
+        break;
+
+    default:
+        break;
+    }
+
+    scope_free(node->scope);
+    free(node);
+}
