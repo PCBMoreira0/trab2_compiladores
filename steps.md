@@ -15,46 +15,31 @@
 - `AST_BEGIN` standalone — emite cada sub-expressão como statement
 - `AST_AND` / `AST_OR` — `and` / `or` infix via `call_logic`
 - `AST_LAMBDA` — caso simples: `lambda params: expr`; complexo emite aviso
+- `AST_COND` — cadeia `if/elif/else` via `translate_as_block`
+- `AST_CASE` — cadeia `if key in (...)/elif/else` via `translate_as_block`
+- `AST_CASE` no switch de `translate` — statement de nível superior
 - Lexer — `COMMENT ;[^\n]*` (comentários vazios e sem `\n` final)
+- Lexer — `STRING_ELEMENT ([^"\\]|\\.)` (escape sequences em strings)
+- `AST_DO` — laço `while` com inicialização, atualização simultânea e resultado
+- `AST_QUOTE` — símbolo → `"str"`, lista → `[...]`, `'()` → `[]` via `translate_datum`
+- `AST_VECTOR` — `#(1 2 3)` → `[1, 2, 3]` via `translate_datum`
+- `AST_CHARACTER` — `#\a` → `'a'`, `#\space` → `' '`, `#\newline` → `'\n'`
+
+---
+
+## Limitações conhecidas (não implementadas)
+
+- `cond` nas formas `(test)` e `(test => recipient)` — `body` é NULL, não suportado
+- `let` / `let*` com múltiplas expressões no corpo — emite aviso, não suportado
+- `lambda` com corpo complexo (`begin` ou múltiplas expressões) — emite aviso
+- `AST_DO` como expressão (valor de `define`, argumento de chamada, etc.) — emite `None`
+- `AST_LETREC` — não implementado
+- `AST_DELAY` — não implementado
+- `AST_QUOTE` aninhado dentro de datum (ex.: `''foo`) — emite `None`
+- `AST_CHARACTER` com `#\\` ou `#\'` — gera Python inválido (caso raro)
 
 ---
 
 ## Pendente
 
-### P8. `AST_LAMBDA` — `(lambda (params) body)`
-Corpo simples (1 expressão, não-`begin`): `lambda p1, p2: expr`.
-Corpo com múltiplas expressões ou `begin`: função auxiliar numerada
-gerada inline (padrão similar ao `let_named`).
-
-### P9. `let` / `let*` com múltiplas expressões no corpo
-Hoje emite `"NÃO SUPORTADO"`. O corpo precisa virar uma função auxiliar
-imediatamente invocada, como já é feito no `let_named`.
-
-### P10. `AST_COND`
-Traduzir como cadeia `if / elif / else`.
-Cada cláusula `(test body)` → `if test:\n body`.
-Cláusula `else` → `else:\n body`.
-Forma `=>` (recipient): avaliar o teste uma vez, passar para o recipiente —
-pode precisar de variável temporária numerada.
-
-### P11. `AST_CASE`
-Traduzir como cadeia `if / elif / else` checando pertinência.
-`(case key ((d1 d2) body) (else e))` → `if key in (d1, d2):\n body\nelse:\n e`
-
-### P12. `AST_DO`
-Laço `while`. Inicializar variáveis antes, atualizar ao fim de cada iteração,
-sair quando o teste for verdadeiro e emitir o resultado.
-
-### P13. `AST_LETREC`
-Semelhante ao `let`, mas os bindings se referenciam mutuamente.
-Em Python, closures já enxergam funções do mesmo escopo, então o padrão
-de função auxiliar do `let_named` provavelmente funciona diretamente.
-
-### P14. `AST_QUOTE` / `AST_VECTOR` / `AST_CHARACTER`
-Menor prioridade.
-- Quote de símbolo → string Python
-- Vetor `#(1 2 3)` → lista Python `[1, 2, 3]`
-- Caractere `#\a` → string de 1 char `"a"`
-
-### P15. `AST_DELAY`
-Menor prioridade. Emular com `lambda: expr` (thunk).
+Todos os itens planejados foram implementados ou marcados como limitação.

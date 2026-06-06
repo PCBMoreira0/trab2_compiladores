@@ -30,7 +30,7 @@ BOOLEAN (#t|#f)
 CHARACTER_NAME (space|newline)
 CHARACTER (#\\{CHARACTER_NAME}|#\\.)
 
-STRING_ELEMENT ([^"\\]|\\\"|\\\\)
+STRING_ELEMENT ([^"\\]|\\.)
 STRING \"{STRING_ELEMENT}*\"
 
 RADIX_2 (#b)

@@ -9,6 +9,7 @@
 int yylex(void);
 void yyerror(const char *);
 extern FILE *yyin;
+extern int yylineno;
 
 /* raiz da AST construida durante o parsing */
 ASTNode *ast_root = NULL;
@@ -30,39 +31,39 @@ ASTNode *ast_root = NULL;
 
 %define parse.error verbose
 
-%token TOKEN_LPAREN
-%token TOKEN_RPAREN
-%token TOKEN_SINGLE_QUOTE
-%token TOKEN_BACKQUOTE
-%token TOKEN_COMMA
-%token TOKEN_COMMA_AT
-%token TOKEN_VECTOR_OPEN
-%token TOKEN_DOT
-%token TOKEN_ARROW
+%token TOKEN_LPAREN    "("
+%token TOKEN_RPAREN    ")"
+%token TOKEN_SINGLE_QUOTE "'"
+%token TOKEN_BACKQUOTE "`"
+%token TOKEN_COMMA     ","
+%token TOKEN_COMMA_AT  ",@"
+%token TOKEN_VECTOR_OPEN "#("
+%token TOKEN_DOT       "."
+%token TOKEN_ARROW     "=>"
 
-%token TOKEN_DELAY
-%token TOKEN_DEFINE
-%token TOKEN_DO
-%token TOKEN_IF
-%token TOKEN_ELSE
-%token TOKEN_LAMBDA
-%token TOKEN_SET
-%token TOKEN_BEGIN
-%token TOKEN_COND
-%token TOKEN_CASE
-%token TOKEN_LET
-%token TOKEN_LET_STAR
-%token TOKEN_LET_REC
-%token TOKEN_QUOTE
-%token TOKEN_AND
-%token TOKEN_OR
+%token TOKEN_DELAY     "delay"
+%token TOKEN_DEFINE    "define"
+%token TOKEN_DO        "do"
+%token TOKEN_IF        "if"
+%token TOKEN_ELSE      "else"
+%token TOKEN_LAMBDA    "lambda"
+%token TOKEN_SET       "set!"
+%token TOKEN_BEGIN     "begin"
+%token TOKEN_COND      "cond"
+%token TOKEN_CASE      "case"
+%token TOKEN_LET       "let"
+%token TOKEN_LET_STAR  "let*"
+%token TOKEN_LET_REC   "letrec"
+%token TOKEN_QUOTE     "quote"
+%token TOKEN_AND       "and"
+%token TOKEN_OR        "or"
 
 
-%token <string_val> TOKEN_BOOLEAN
-%token <string_val> TOKEN_NUMBER
-%token <string_val> TOKEN_STRING
-%token <string_val> TOKEN_CHARACTER
-%token <string_val> TOKEN_IDENTIFIER
+%token <string_val> TOKEN_BOOLEAN    "boolean"
+%token <string_val> TOKEN_NUMBER     "number"
+%token <string_val> TOKEN_STRING     "string"
+%token <string_val> TOKEN_CHARACTER  "character"
+%token <string_val> TOKEN_IDENTIFIER "identifier"
 
 /* nao-terminais que produzem um no' da AST */
 %type <node> program command_or_definition command
@@ -387,7 +388,7 @@ list_datum_plus:
 
 void yyerror(const char *s)
 {
-    printf("Erro: %s\n", s);
+    printf("Erro na linha %d: %s\n", yylineno, s);
 }
 
 int main(int argc, char **argv) {
@@ -417,11 +418,23 @@ int main(int argc, char **argv) {
     printf("===============\n");
     ast_dfs_second(ast_root, table); 
 
-    translate(ast_root, stdout, NULL, 0);
+    FILE *py = fopen("python.py", "w+");
+    if (!py) {
+        perror("Erro ao criar o arquivo python");
+        return 1;
+    }
+    translate(ast_root, py, NULL, 0);
+    fclose(py);
 
+    int n = translator_get_error_count();
+    if (n > 0) {
+        const char **errs = translator_get_errors();
+        fprintf(stderr, "Erro de traducao (%d): ", n);
+        for (int i = 0; i < n; i++)
+            fprintf(stderr, "- %s\n", errs[i]);
+        remove("python.py");
+    }
 
-    /* remove("py_defs.py");
-    remove("py_code.py"); */
 
     if (yyin != stdin) {
         fclose(yyin);
