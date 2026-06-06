@@ -423,7 +423,7 @@ int main(int argc, char **argv) {
         perror("Erro ao criar o arquivo python");
         return 1;
     }
-    translate(ast_root, py, NULL, 0);
+    translate(ast_root, py, 0);
     fclose(py);
 
     int n = translator_get_error_count();
