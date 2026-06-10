@@ -6,3 +6,4 @@ lex.yy.c
 *.output
 scheme.scm
 python.py
+python.py

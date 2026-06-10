@@ -4,14 +4,14 @@
 #include "libs/symbol_tab.h"
 #include "libs/scheme_ast.h"
 #include "libs/translator.h"
-#include "libs/merge_file.h"
+
 
 int yylex(void);
 void yyerror(const char *);
 extern FILE *yyin;
 extern int yylineno;
 
-/* raiz da AST construida durante o parsing */
+
 ASTNode *ast_root = NULL;
 %}
 
@@ -23,9 +23,7 @@ ASTNode *ast_root = NULL;
 %union {
     char *string_val;
     ASTNode *node;
-    /* formals carregam a lista de parametros + o parametro variadico (resto) */
     struct { ASTNode *params; ASTNode *rest; } formals_val;
-    /* corpos de cond/case carregam a lista de clausulas + a clausula else */
     struct { ASTNode *clauses; ASTNode *else_clause; } clause_body;
 }
 
@@ -406,16 +404,11 @@ int main(int argc, char **argv) {
 
     yyparse();
 
-    printf("\n===== AST =====\n");
-    printf("===============\n");
-    ast_print(ast_root, 0);
+    //ast_print(ast_root, 0);
 
-    printf("\n===== TABELA DE SIMBOLOS =====\n"); 
     SymbolTable *table = symtab_create();
     ast_dfs(ast_root, table);
 
-    printf("\n===== VERIFICAÇÃO =====\n");
-    printf("===============\n");
     ast_dfs_second(ast_root, table); 
 
     FILE *py = fopen("python.py", "w+");
@@ -440,7 +433,7 @@ int main(int argc, char **argv) {
         fclose(yyin);
     }
 
-    printf("\nfim\n");
+    
 
     return 0;
 }

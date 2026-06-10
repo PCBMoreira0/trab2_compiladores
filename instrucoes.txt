@@ -1,8 +1,12 @@
-flex arquivo.l
-bison -d arquivo.y
+## Instruções de compilação:
 
+flex bottom_up/scheme.l
+bison -d bottom_up/scheme.y
 
-gcc arquivo.tab.c lex.yy.c libs/ast.c libs/translator.c
+gcc lex.yy.c scheme.tab.c libs/scheme_ast.c libs/symbol_tab.c libs/translator.c
 
-./a.out codigo.ps
+./a.out 
+
+## É possível passar um arquivo como parâmetro de teste para a execução (./a.out <arquivo>).
+## Ou é possível executar colando blocos de código que deseja testar, apertando Ctrl + D para verificar a tradução.
 
